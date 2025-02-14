@@ -101,7 +101,7 @@ class MedicationEvent:
             try:
                 self.timestamp = datetime.fromisoformat(
                     timestamp.replace("Z", "+00:00")
-                )
+                ).astimezone(timezone.utc)
             except ValueError:
                 try:
                     self.timestamp = datetime.strptime(

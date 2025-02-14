@@ -51,6 +51,24 @@ const DEFAULT_ASM_PARAMETERS = {
   }
 };
 
+const processChartData = (rawData) => {
+  const grouped = rawData.reduce((acc, entry) => {
+    const time = new Date(entry.time).getTime();
+    if (!acc[time]) {
+      acc[time] = { time: entry.time };
+    }
+    acc[time][entry.asmType] = entry.concentration;
+    return acc;
+  }, {});
+
+  return Object.values(grouped)
+    .sort((a, b) => new Date(a.time) - new Date(b.time))
+    .map(entry => ({
+      ...entry,
+      time: new Date(entry.time).getTime() // Convert to timestamp
+    }));
+};
+
 function App() {
   const [results, setResults] = useState([])
   const [formState, setFormState] = useState(() => {
@@ -273,6 +291,7 @@ function App() {
                               const newHistory = [...formState.medicationHistory];
                               const globalIndex = formState.medicationHistory.indexOf(med);
                               const date = new Date(e.target.value);
+                              // Convert to UTC ISO string
                               newHistory[globalIndex].timestamp = date.toISOString();
                               setFormState(prev => ({
                                 ...prev,
@@ -341,31 +360,29 @@ function App() {
         <div className="chart-container">
           <h2>Concentration Over Time</h2>
           {formState.medicationHistory.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={500}>
               <LineChart
-                data={results}
                 margin={{ left: 50, right: 20, top: 20, bottom: 20 }}
+                data={processChartData(results)}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="time"
-                  tickFormatter={(time) => {
-                    const date = new Date(time);
-                    return date.toLocaleTimeString([], {
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={(unixTime) => {
+                    const date = new Date(unixTime);
+                    return date.toLocaleDateString([], {
+                      month: 'short',
+                      day: 'numeric',
                       hour: 'numeric',
-                      hour12: true
+                      minute: '2-digit'
                     });
                   }}
-                  ticks={[...new Set(results
-                    .filter(point => {
-                      const date = new Date(point.time);
-                      return date.getMinutes() === 0 && date.getHours() % 2 === 0;
-                    })
-                    .map(point => point.time)
-                  )]}
-                  type="category"
-                  interval={0}
-                  minTickGap={30}
+                  scale="time"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
                 />
                 <YAxis
                   label={{
@@ -379,26 +396,16 @@ function App() {
                   }}
                 />
                 <Tooltip
-                  labelFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleString([], {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    });
-                  }}
+                  labelFormatter={(value) => new Date(value).toLocaleString()}
                 />
-                {Array.from(new Set(results.map(r => r.asmType))).map((asmType, idx) => {
-                  const asmData = results.filter(r => r.asmType === asmType);
+                {Object.keys(formState.asmParameters).map((asmType, idx) => {
+                  const color = ['#8884d8', '#82ca9d', '#ffc658'][idx % 3];
                   return (
                     <Line
                       key={asmType}
                       type="monotone"
-                      dataKey="concentration"
-                      data={asmData}
-                      stroke={['#8884d8', '#82ca9d', '#ffc658'][idx % 3]}
+                      dataKey={asmType}
+                      stroke={color}
                       name={asmType}
                       dot={false}
                       connectNulls

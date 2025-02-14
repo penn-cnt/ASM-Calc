@@ -1,6 +1,6 @@
 # Source: https://github.com/nghosn3/ASM-project | https://doi.org/10.1111/epi.17558
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 import numpy as np
 
 
@@ -38,19 +38,17 @@ def calculate_drug_levels(medication_history, drug_params):
     if not sorted_meds:
         return [], []
 
-    # Create time points for calculation
-    start_time = sorted_meds[0].timestamp
-    end_time = sorted_meds[-1].timestamp + timedelta(hours=24)
+    # Find global start/end times across all ASMs
+    all_med_times = [m.timestamp for m in medication_history]
+    global_start = min(all_med_times).astimezone(timezone.utc)
+    global_end = max(all_med_times).astimezone(timezone.utc) + timedelta(
+        hours=24 * 5
+    )  # Extend 5 days past last dose
 
-    # Round start time down to nearest hour
-    start_time = start_time.replace(minute=0, second=0, microsecond=0)
-
-    # Initialize arrays for exact hour points and medication times
+    # Create time points in UTC covering full range
+    current = global_start.replace(minute=0, second=0, microsecond=0)
     time_points = []
-    current = start_time
-
-    # Add points every 10 minutes
-    while current <= end_time:
+    while current <= global_end:
         time_points.append(current)
         current += timedelta(minutes=10)
 
