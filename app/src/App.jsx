@@ -222,21 +222,52 @@ function App() {
           <h2>Concentration Over Time</h2>
           {results.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={results}>
+              <LineChart
+                data={results}
+                margin={{ left: 50, right: 20, top: 20, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="time"
-                  tickFormatter={(time) => new Date(time).toLocaleTimeString()}
+                  tickFormatter={(time) => {
+                    const date = new Date(time);
+                    return date.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                  }}
+                  interval="preserveStartEnd"
                 />
-                <YAxis label={{ value: 'Concentration (mg/L)', angle: -90 }} />
+                <YAxis
+                  label={{
+                    value: 'Concentration (mg/L)',
+                    angle: -90,
+                    position: 'insideLeft',
+                    offset: -5,
+                    style: {
+                      textAnchor: 'middle'
+                    }
+                  }}
+                />
                 <Tooltip
-                  labelFormatter={(value) => new Date(value).toLocaleString()}
+                  labelFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleString([], {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                  }}
                 />
                 <Line
                   type="monotone"
                   dataKey="concentration"
                   stroke="#8884d8"
                   strokeWidth={2}
+                  dot={{ r: 3 }}
                 />
               </LineChart>
             </ResponsiveContainer>

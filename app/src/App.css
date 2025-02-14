@@ -268,3 +268,13 @@ input[type="datetime-local"]:focus {
   justify-content: space-between;
   margin-bottom: 1rem;
 }
+
+.recharts-cartesian-axis-label {
+  fill: #666;
+  font-size: 14px;
+}
+
+.recharts-tooltip-label {
+  color: #666;
+  margin-bottom: 4px;
+}
