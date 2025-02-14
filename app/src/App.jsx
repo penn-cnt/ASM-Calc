@@ -1,76 +1,88 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './App.css'
 
+const loadFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem('formState');
+    return savedState ? JSON.parse(savedState) : null;
+  } catch (error) {
+    console.error('Error loading from localStorage:', error);
+    return null;
+  }
+};
+
 function App() {
   const [results, setResults] = useState([])
-  const [formState, setFormState] = useState({
-    weight: 70,
-    halfLife: 12,
-    vd: 0.7,
-    bioavailability: 0.8,
-    medicationHistory: []
-  })
+  const [formState, setFormState] = useState(() => {
+    const savedState = loadFromLocalStorage();
+    return savedState || {
+      weight: 70,
+      halfLife: 12,
+      vd: 0.7,
+      bioavailability: 0.8,
+      medicationHistory: []
+    };
+  });
 
-  const calculateConcentrations = async (e) => {
-    e.preventDefault()
+  useEffect(() => {
     try {
-      // Validate medication history
-      if (!formState.medicationHistory || formState.medicationHistory.length === 0) {
-        throw new Error("Please add at least one medication dose")
-      }
-
-      // Convert all doses to mg before sending
-      const convertToMg = (value, unit) => {
-        switch (unit) {
-          case 'ug': return value / 1000;
-          case 'g': return value * 1000;
-          default: return value;
-        }
-      };
-
-      const requestData = {
-        ...formState,
-        weight: parseFloat(formState.weight),
-        vd: parseFloat(formState.vd),
-        medicationHistory: formState.medicationHistory.map(med => ({
-          timestamp: med.timestamp,
-          dosage: convertToMg(parseFloat(med.dosage), med.unit),
-          taken: true
-        }))
-      }
-      console.log('Sending data (stringified):', JSON.stringify(requestData, null, 2))
-
-      const response = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      })
-
-      // Log the raw response
-      const responseText = await response.text()
-      console.log('Raw response:', responseText)
-
-      // Try to parse as JSON
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (parseError) {
-        throw new Error(`Invalid JSON response: ${responseText}`)
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Calculation failed')
-      }
-
-      setResults(data)
+      localStorage.setItem('formState', JSON.stringify(formState));
     } catch (error) {
-      alert(`Error: ${error.message}`)
-      console.error('Calculation error:', error)
+      console.error('Error saving to localStorage:', error);
     }
-  }
+  }, [formState]);
+
+  useEffect(() => {
+    const calculateConcentrations = async () => {
+      if (formState.medicationHistory && formState.medicationHistory.length > 0) {
+        try {
+          const requestData = {
+            ...formState,
+            weight: parseFloat(formState.weight),
+            vd: parseFloat(formState.vd),
+            medicationHistory: formState.medicationHistory.map(med => ({
+              timestamp: med.timestamp,
+              dosage: convertToMg(parseFloat(med.dosage), med.unit),
+              taken: true
+            }))
+          };
+
+          const response = await fetch('/api/calculate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+          });
+
+          const responseText = await response.text();
+          const data = JSON.parse(responseText);
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Calculation failed');
+          }
+
+          setResults(data);
+        } catch (error) {
+          console.error('Error calculating concentrations:', error);
+        }
+      } else {
+        // Clear results if there are no doses
+        setResults([]);
+      }
+    };
+
+    calculateConcentrations();
+  }, [formState]); // Now depends on formState changes
+
+  const convertToMg = (value, unit) => {
+    switch (unit) {
+      case 'ug': return value / 1000;
+      case 'g': return value * 1000;
+      default: return value;
+    }
+  };
 
   const addDose = () => {
     // Get current date-time and format it to ISO string with local timezone offset
@@ -102,7 +114,7 @@ function App() {
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
 
-      <form onSubmit={calculateConcentrations} className="calculator-grid">
+      <form className="calculator-grid">
         <div className="parameters-grid">
           <div className="form-section">
             <h2>Patient Parameters</h2>
@@ -159,9 +171,6 @@ function App() {
             <div className="button-row">
               <button type="button" onClick={addDose} className="add-dose-btn">
                 Add New Dose
-              </button>
-              <button type="submit" className="calculate-btn">
-                Calculate Concentrations
               </button>
             </div>
 
@@ -220,7 +229,7 @@ function App() {
 
         <div className="chart-container">
           <h2>Concentration Over Time</h2>
-          {results.length > 0 ? (
+          {formState.medicationHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
               <LineChart
                 data={results}
@@ -272,7 +281,7 @@ function App() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="no-data">Submit calculation to view results</p>
+            <p className="no-data">Add doses to view concentration over time</p>
           )}
         </div>
       </form>

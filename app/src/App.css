@@ -156,6 +156,7 @@ input[type="datetime-local"]:focus {
 .add-dose-btn {
   background: #2196F3;
   margin-bottom: 0;
+  min-width: fit-content;
 }
 
 .add-dose-btn:hover {
@@ -265,8 +266,9 @@ input[type="datetime-local"]:focus {
 
 .button-row {
   display: flex;
-  justify-content: space-between;
+  gap: 0.8rem;
   margin-bottom: 1rem;
+  justify-content: flex-start;
 }
 
 .recharts-cartesian-axis-label {
