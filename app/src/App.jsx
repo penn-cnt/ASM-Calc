@@ -20,14 +20,22 @@ function App() {
         throw new Error("Please add at least one medication dose")
       }
 
-      // Format the request data
+      // Convert all doses to mg before sending
+      const convertToMg = (value, unit) => {
+        switch (unit) {
+          case 'ug': return value / 1000;
+          case 'g': return value * 1000;
+          default: return value;
+        }
+      };
+
       const requestData = {
         ...formState,
         weight: parseFloat(formState.weight),
         vd: parseFloat(formState.vd),
         medicationHistory: formState.medicationHistory.map(med => ({
           timestamp: med.timestamp,
-          dosage: parseFloat(med.dosage),  // Convert to number
+          dosage: convertToMg(parseFloat(med.dosage), med.unit),
           taken: true
         }))
       }
@@ -67,7 +75,8 @@ function App() {
   const addDose = () => {
     const newDose = {
       timestamp: new Date().toISOString(),
-      dosage: "500",  // Changed to just the number
+      dosage: "500",
+      unit: "mg",
       taken: true
     };
     console.log("Adding new dose:", newDose);
@@ -77,12 +86,19 @@ function App() {
     }));
   }
 
+  const deleteDose = (index) => {
+    setFormState(prev => ({
+      ...prev,
+      medicationHistory: prev.medicationHistory.filter((_, i) => i !== index)
+    }));
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
 
-      <div className="calculator-grid">
-        <form onSubmit={calculateConcentrations} className="parameters-form">
+      <form onSubmit={calculateConcentrations} className="calculator-grid">
+        <div className="parameters-grid">
           <div className="form-section">
             <h2>Patient Parameters</h2>
             <label>
@@ -133,45 +149,69 @@ function App() {
             </label>
           </div>
 
-          <div className="form-section">
+          <div className="form-section medication-history">
             <h2>Medication History</h2>
-            <button type="button" onClick={addDose} className="add-dose-btn">
-              Add Dose
-            </button>
+            <div className="button-row">
+              <button type="button" onClick={addDose} className="add-dose-btn">
+                Add New Dose
+              </button>
+              <button type="submit" className="calculate-btn">
+                Calculate Concentrations
+              </button>
+            </div>
 
             {formState.medicationHistory.map((med, index) => (
               <div key={index} className="dose-entry">
-                <input
-                  type="datetime-local"
-                  value={med.timestamp.slice(0, 16)}
-                  onChange={e => {
-                    const newHistory = [...formState.medicationHistory]
-                    newHistory[index].timestamp = e.target.value + ':00Z'
-                    setFormState({ ...formState, medicationHistory: newHistory })
-                  }}
-                  required
-                />
-                <input
-                  type="text"
-                  value={med.dosage}
-                  onChange={e => {
-                    const newHistory = [...formState.medicationHistory]
-                    newHistory[index].dosage = e.target.value
-                    setFormState({ ...formState, medicationHistory: newHistory })
-                  }}
-                  placeholder="Dosage (e.g., 500)"
-                  pattern="\d+(\.\d+)?\s*(mg)?"
-                  title="Enter dosage in mg (e.g., 500 or 250 mg)"
-                  required
-                />
+                <div className="dose-entry-inputs">
+                  <input
+                    type="datetime-local"
+                    value={med.timestamp.slice(0, 16)}
+                    onChange={e => {
+                      const newHistory = [...formState.medicationHistory];
+                      newHistory[index].timestamp = e.target.value + ':00Z';
+                      setFormState({ ...formState, medicationHistory: newHistory });
+                    }}
+                    required
+                  />
+                  <div className="dose-value-group">
+                    <input
+                      type="number"
+                      value={med.dosage}
+                      onChange={e => {
+                        const newHistory = [...formState.medicationHistory];
+                        newHistory[index].dosage = e.target.value;
+                        setFormState({ ...formState, medicationHistory: newHistory });
+                      }}
+                      placeholder="Dosage"
+                      min="0"
+                      step="any"
+                      required
+                    />
+                    <select
+                      value={med.unit || 'mg'}
+                      onChange={e => {
+                        const newHistory = [...formState.medicationHistory];
+                        newHistory[index].unit = e.target.value;
+                        setFormState({ ...formState, medicationHistory: newHistory });
+                      }}
+                    >
+                      <option value="ug">µg</option>
+                      <option value="mg">mg</option>
+                      <option value="g">g</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteDose(index)}
+                  aria-label="Delete dose"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>
-
-          <button type="submit" className="calculate-btn">
-            Calculate Concentrations
-          </button>
-        </form>
+        </div>
 
         <div className="chart-container">
           <h2>Concentration Over Time</h2>
@@ -199,7 +239,7 @@ function App() {
             <p className="no-data">Submit calculation to view results</p>
           )}
         </div>
-      </div>
+      </form>
     </div>
   )
 }
