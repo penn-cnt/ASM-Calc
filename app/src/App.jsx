@@ -73,8 +73,13 @@ function App() {
   }
 
   const addDose = () => {
+    // Get current date-time and format it to ISO string with local timezone offset
+    const now = new Date();
+    const timeZoneOffset = now.getTimezoneOffset() * 60000; // convert minutes to milliseconds
+    const localISOTime = new Date(now - timeZoneOffset).toISOString().slice(0, -1);
+
     const newDose = {
-      timestamp: new Date().toISOString(),
+      timestamp: localISOTime,
       dosage: "500",
       unit: "mg",
       taken: true
