@@ -8,57 +8,81 @@ app = Flask(__name__)
 @app.route("/api/calculate", methods=["POST"])
 def calculate_concentrations():
     try:
-        # Log incoming request data
-        print("Received request data:", request.get_data())
-        print("Parsed JSON:", request.json)
-
         data = request.json
         print("Received data:", data)  # Debug print
-        if not data:
-            return jsonify({"error": "No JSON data received"}), 400
 
-        # Add input validation
-        if not data.get("medicationHistory"):
+        if not data or "medicationHistory" not in data:
             return jsonify({"error": "No medication history provided"}), 400
 
-        print("Medication history:", data["medicationHistory"])
+        if "asmParameters" not in data:
+            return jsonify({"error": "No ASM parameters provided"}), 400
 
-        # Debug each medication entry
-        for med in data["medicationHistory"]:
-            print(f"Processing medication entry: {med}")
-            print(f"Dosage type: {type(med['dosage'])}")
-            print(f"Dosage value: {med['dosage']}")
-
-        # Convert medication history to objects with UTC timestamps
+        # Convert medication history with ASM type
         med_history = []
         for med in data["medicationHistory"]:
-            event = MedicationEvent(med["timestamp"], med["dosage"])
-            med_history.append(event)
+            if "asmType" not in med:
+                return jsonify({"error": "Missing asmType in medication entry"}), 400
 
-        # Get parameters with explicit type conversion
-        params = {
-            "half_life": float(data.get("halfLife", DRUG_PARAMS["half_life"])),
-            "vd": float(data.get("vd", DRUG_PARAMS["vd"])),
-            "bioavailability": float(
-                data.get("bioavailability", DRUG_PARAMS["bioavailability"])
-            ),
-        }
+            try:
+                event = MedicationEvent(
+                    timestamp=med["timestamp"],
+                    dosage=med["dosage"],
+                    asm_type=med["asmType"],
+                )
+                med_history.append(event)
+            except Exception as e:
+                print(f"Error processing medication entry: {e}")
+                return jsonify({"error": f"Invalid medication entry: {str(e)}"}), 400
 
-        # Calculate concentrations
-        times, concentrations = calculate_drug_levels(med_history, params)
+        # Get parameters for each ASM type
+        asm_params = {}
+        for asm_name, params in data["asmParameters"].items():
+            try:
+                asm_params[asm_name] = {
+                    "half_life": float(params["halfLife"]),
+                    "vd": float(params["vd"]),
+                    "bioavailability": float(params["bioavailability"]),
+                }
+            except (KeyError, ValueError) as e:
+                return (
+                    jsonify({"error": f"Invalid parameters for {asm_name}: {str(e)}"}),
+                    400,
+                )
 
-        # Format results
-        results = [
-            {"time": t.isoformat(), "concentration": round(c, 2)}
-            for t, c in zip(times, concentrations)
-        ]
+        # Calculate concentrations for each ASM type
+        all_results = []
+        for asm_name, params in asm_params.items():
+            # Filter medications for this ASM type
+            asm_meds = [m for m in med_history if m.asm_type == asm_name]
+            if not asm_meds:
+                continue
 
-        return jsonify(results)
+            try:
+                times, concentrations = calculate_drug_levels(asm_meds, params)
+                all_results.extend(
+                    [
+                        {
+                            "time": t.isoformat(),
+                            "concentration": round(c, 2),
+                            "asmType": asm_name,
+                        }
+                        for t, c in zip(times, concentrations)
+                    ]
+                )
+            except Exception as e:
+                print(f"Error calculating concentrations for {asm_name}: {e}")
+                return (
+                    jsonify({"error": f"Calculation failed for {asm_name}: {str(e)}"}),
+                    500,
+                )
+
+        return jsonify(all_results)
+
     except Exception as e:
-        print("Server error:", str(e))  # Log the error
+        print("Server error:", str(e))
         import traceback
 
-        traceback.print_exc()  # Print full traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -71,7 +95,7 @@ DRUG_PARAMS = {
 
 
 class MedicationEvent:
-    def __init__(self, timestamp, dosage):
+    def __init__(self, timestamp, dosage, asm_type):
         # Parse timestamp string to datetime object in UTC
         if isinstance(timestamp, str):
             try:
@@ -79,13 +103,23 @@ class MedicationEvent:
                     timestamp.replace("Z", "+00:00")
                 )
             except ValueError:
-                self.timestamp = datetime.strptime(
-                    timestamp, "%Y-%m-%dT%H:%M:%S"
-                ).replace(tzinfo=timezone.utc)
+                try:
+                    self.timestamp = datetime.strptime(
+                        timestamp, "%Y-%m-%dT%H:%M:%S"
+                    ).replace(tzinfo=timezone.utc)
+                except ValueError as e:
+                    raise ValueError(f"Invalid timestamp format: {e}")
         else:
             self.timestamp = timestamp
 
-        self.dosage = float(dosage)
+        try:
+            self.dosage = float(dosage)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Invalid dosage value: {e}")
+
+        if not asm_type:
+            raise ValueError("ASM type cannot be empty")
+        self.asm_type = asm_type
         self.taken = True
 
 

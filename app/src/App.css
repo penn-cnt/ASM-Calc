@@ -69,7 +69,7 @@ h1 {
 
 .parameters-grid {
   display: grid;
-  grid-template-columns: min-content min-content 1fr;
+  grid-template-columns: min-content 1fr;
   gap: 1.5rem;
 }
 
@@ -177,9 +177,9 @@ input[type="datetime-local"]:focus {
 
 .dose-entry-inputs {
   display: grid;
-  grid-template-columns: 2.2fr 1fr;
+  grid-template-columns: 1fr 8rem auto;
   gap: 0.8rem;
-  align-items: start;
+  align-items: center;
 }
 
 .dose-entry input {
@@ -200,8 +200,8 @@ input[type="datetime-local"]:focus {
   color: white;
   border: none;
   padding: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.8rem;
+  height: 1.8rem;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
@@ -211,6 +211,7 @@ input[type="datetime-local"]:focus {
   font-size: 1.2rem;
   line-height: 1;
   font-family: system-ui, -apple-system, sans-serif;
+  align-self: center;
 }
 
 .dose-entry button:hover {
@@ -240,13 +241,20 @@ input[type="datetime-local"]:focus {
 
 .dose-value-group {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.8rem;
-  align-items: start;
+  grid-template-columns: 4rem auto;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.dose-value-group input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.6rem;
 }
 
 .dose-value-group select {
-  width: 4rem;
+  width: 3.5rem;
   height: 100%;
   padding: 0.6rem 0.4rem;
   border: 1px solid #e2e8f0;
@@ -279,4 +287,119 @@ input[type="datetime-local"]:focus {
 .recharts-tooltip-label {
   color: #666;
   margin-bottom: 4px;
+}
+
+.asm-parameters-container {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.asm-parameters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.asm-params-group {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.asm-params-group h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.asm-params-group label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.asm-params-group input {
+  width: 120px;
+  margin-top: 0;
+  margin-left: 1rem;
+}
+
+.asm-dose-group {
+  margin-bottom: 1.5rem;
+}
+
+.asm-dose-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem;
+  background: #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.asm-dose-header:hover {
+  background: #cbd5e1;
+}
+
+.asm-dose-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1a202c;
+}
+
+.collapse-indicator {
+  color: #4a5568;
+  font-size: 0.8rem;
+}
+
+.add-dose-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  background-color: #fff;
+  min-width: 160px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.dropdown-content button {
+  display: block;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  border: none;
+  background: none;
+  text-align: left;
+  color: #4a5568;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-content button:hover {
+  background-color: #f8fafc;
+}
+
+.dropdown-content button:first-child {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.dropdown-content button:last-child {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
 }

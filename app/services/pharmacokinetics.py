@@ -23,7 +23,16 @@ class DrugModel:
 
 
 def calculate_drug_levels(medication_history, drug_params):
-    """Calculate drug concentrations over time based on medication history"""
+    """Calculate drug concentrations for a single ASM type"""
+    if not medication_history:
+        return [], []
+
+    # Validate parameters
+    required_params = ["half_life", "vd", "bioavailability"]
+    for param in required_params:
+        if param not in drug_params:
+            raise ValueError(f"Missing required parameter: {param}")
+
     # Sort medications by timestamp
     sorted_meds = sorted(medication_history, key=lambda x: x.timestamp)
     if not sorted_meds:

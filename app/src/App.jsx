@@ -5,7 +5,19 @@ import './App.css'
 const loadFromLocalStorage = () => {
   try {
     const savedState = localStorage.getItem('formState');
-    return savedState ? JSON.parse(savedState) : null;
+    if (!savedState) return null;
+
+    const parsedState = JSON.parse(savedState);
+
+    // Ensure all medication entries have an ASM type
+    if (parsedState.medicationHistory) {
+      parsedState.medicationHistory = parsedState.medicationHistory.map(med => ({
+        ...med,
+        asmType: med.asmType || Object.keys(DEFAULT_ASM_PARAMETERS)[0] // Default to first ASM type
+      }));
+    }
+
+    return parsedState;
   } catch (error) {
     console.error('Error loading from localStorage:', error);
     return null;
@@ -23,16 +35,39 @@ const formatLocalDateTime = (isoString) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+// Add default ASM parameters
+const DEFAULT_ASM_PARAMETERS = {
+  'Levetiracetam': {
+    halfLife: 6,
+    vd: 0.7,
+    bioavailability: 1.0,
+    isCollapsed: false
+  },
+  'Valproate': {
+    halfLife: 14,
+    vd: 0.2,
+    bioavailability: 0.9,
+    isCollapsed: false
+  }
+};
+
 function App() {
   const [results, setResults] = useState([])
   const [formState, setFormState] = useState(() => {
     const savedState = loadFromLocalStorage();
-    return savedState || {
-      weight: 70,
-      halfLife: 12,
-      vd: 0.7,
-      bioavailability: 0.8,
-      medicationHistory: []
+    // Clear localStorage if it contains old format data
+    if (savedState?.medicationHistory?.some(med => !med.asmType)) {
+      localStorage.removeItem('formState');
+      return {
+        weight: 70,
+        asmParameters: DEFAULT_ASM_PARAMETERS,
+        medicationHistory: []
+      };
+    }
+    return {
+      weight: savedState?.weight || 70,
+      asmParameters: savedState?.asmParameters || DEFAULT_ASM_PARAMETERS,
+      medicationHistory: savedState?.medicationHistory || []
     };
   });
 
@@ -49,12 +84,12 @@ function App() {
       if (formState.medicationHistory && formState.medicationHistory.length > 0) {
         try {
           const requestData = {
-            ...formState,
             weight: parseFloat(formState.weight),
-            vd: parseFloat(formState.vd),
+            asmParameters: formState.asmParameters,
             medicationHistory: formState.medicationHistory.map(med => ({
               timestamp: med.timestamp,
               dosage: convertToMg(parseFloat(med.dosage), med.unit),
+              asmType: med.asmType,
               taken: true
             }))
           };
@@ -87,6 +122,21 @@ function App() {
     calculateConcentrations();
   }, [formState]); // Now depends on formState changes
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdown = document.getElementById('add-dose-dropdown');
+      const button = event.target.closest('.add-dose-btn');
+      if (dropdown && !button && dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   const convertToMg = (value, unit) => {
     switch (unit) {
       case 'ug': return value / 1000;
@@ -97,20 +147,25 @@ function App() {
 
   const addDose = () => {
     const now = new Date();
-    const localISOTime = now.toISOString();  // Use UTC ISO string directly
+    const localISOTime = now.toISOString();
+
+    // Find first non-collapsed ASM type
+    const defaultAsmType = Object.entries(formState.asmParameters)
+      .find(([_, params]) => !params.isCollapsed)?.[0]
+      || Object.keys(formState.asmParameters)[0];
 
     const newDose = {
       timestamp: localISOTime,
       dosage: "500",
       unit: "mg",
+      asmType: defaultAsmType,
       taken: true
     };
-    console.log("Adding new dose:", newDose);
     setFormState(prev => ({
       ...prev,
       medicationHistory: [...prev.medicationHistory, newDose]
     }));
-  }
+  };
 
   const deleteDose = (index) => {
     setFormState(prev => ({
@@ -127,49 +182,15 @@ function App() {
         <div className="parameters-grid">
           <div className="form-section">
             <h2>Patient Parameters</h2>
-            <label>
+            <label htmlFor="patient-weight">
               Weight (kg):
               <input
+                id="patient-weight"
+                name="patient-weight"
                 type="number"
                 value={formState.weight}
                 onChange={e => setFormState({ ...formState, weight: e.target.value })}
                 step="0.1"
-                required
-              />
-            </label>
-
-            <label>
-              Half-life (hours):
-              <input
-                type="number"
-                value={formState.halfLife}
-                onChange={e => setFormState({ ...formState, halfLife: e.target.value })}
-                required
-              />
-            </label>
-          </div>
-
-          <div className="form-section">
-            <h2>Drug Parameters</h2>
-            <label>
-              Volume of Distribution (L/kg):
-              <input
-                type="number"
-                value={formState.vd}
-                onChange={e => setFormState({ ...formState, vd: e.target.value })}
-                step="0.1"
-                required
-              />
-            </label>
-
-            <label>
-              Bioavailability (%):
-              <input
-                type="number"
-                value={formState.bioavailability * 100}
-                onChange={e => setFormState({ ...formState, bioavailability: e.target.value / 100 })}
-                min="0"
-                max="100"
                 required
               />
             </label>
@@ -178,60 +199,140 @@ function App() {
           <div className="form-section medication-history">
             <h2>Medication History</h2>
             <div className="button-row">
-              <button type="button" onClick={addDose} className="add-dose-btn">
-                Add New Dose
-              </button>
-            </div>
+              <div className="add-dose-dropdown">
+                <button type="button" className="add-dose-btn" onClick={() => {
+                  const dropdownEl = document.getElementById('add-dose-dropdown');
+                  dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
+                }}>
+                  Add New Dose
+                </button>
+                <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
+                  {Object.keys(formState.asmParameters).map(asmType => (
+                    <button
+                      key={asmType}
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const localISOTime = now.toISOString();
 
-            {formState.medicationHistory.map((med, index) => (
-              <div key={index} className="dose-entry">
-                <div className="dose-entry-inputs">
-                  <input
-                    type="datetime-local"
-                    value={formatLocalDateTime(med.timestamp)}
-                    onChange={e => {
-                      const newHistory = [...formState.medicationHistory];
-                      const date = new Date(e.target.value);
-                      newHistory[index].timestamp = date.toISOString();  // Store as UTC ISO string
-                      setFormState({ ...formState, medicationHistory: newHistory });
-                    }}
-                    required
-                  />
-                  <div className="dose-value-group">
-                    <input
-                      type="number"
-                      value={med.dosage}
-                      onChange={e => {
-                        const newHistory = [...formState.medicationHistory];
-                        newHistory[index].dosage = e.target.value;
-                        setFormState({ ...formState, medicationHistory: newHistory });
-                      }}
-                      placeholder="Dosage"
-                      min="0"
-                      step="any"
-                      required
-                    />
-                    <select
-                      value={med.unit || 'mg'}
-                      onChange={e => {
-                        const newHistory = [...formState.medicationHistory];
-                        newHistory[index].unit = e.target.value;
-                        setFormState({ ...formState, medicationHistory: newHistory });
+                        const newDose = {
+                          timestamp: localISOTime,
+                          dosage: "500",
+                          unit: "mg",
+                          asmType: asmType,
+                          taken: true
+                        };
+                        setFormState(prev => ({
+                          ...prev,
+                          medicationHistory: [...prev.medicationHistory, newDose]
+                        }));
+                        document.getElementById('add-dose-dropdown').style.display = 'none';
                       }}
                     >
-                      <option value="ug">µg</option>
-                      <option value="mg">mg</option>
-                      <option value="g">g</option>
-                    </select>
-                  </div>
+                      {asmType}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => deleteDose(index)}
-                  aria-label="Delete dose"
-                >
-                  ×
-                </button>
+              </div>
+            </div>
+
+            {/* Group doses by ASM type */}
+            {Object.keys(formState.asmParameters).map(asmType => (
+              <div key={asmType} className="asm-dose-group">
+                <div className="asm-dose-header" onClick={() => {
+                  // Toggle visibility of this ASM type's doses
+                  setFormState(prev => ({
+                    ...prev,
+                    asmParameters: {
+                      ...prev.asmParameters,
+                      [asmType]: {
+                        ...prev.asmParameters[asmType],
+                        isCollapsed: !prev.asmParameters[asmType].isCollapsed
+                      }
+                    }
+                  }));
+                }}>
+                  <h3>{asmType}</h3>
+                  <span className="collapse-indicator">
+                    {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
+                  </span>
+                </div>
+
+                {!formState.asmParameters[asmType].isCollapsed &&
+                  formState.medicationHistory
+                    .filter(med => med.asmType === asmType)
+                    .map((med, index) => (
+                      <div key={`${asmType}-${index}`} className="dose-entry">
+                        <div className="dose-entry-inputs">
+                          <input
+                            id={`dose-time-${asmType}-${index}`}
+                            name={`dose-time-${asmType}-${index}`}
+                            type="datetime-local"
+                            value={formatLocalDateTime(med.timestamp)}
+                            onChange={e => {
+                              const newHistory = [...formState.medicationHistory];
+                              const globalIndex = formState.medicationHistory.indexOf(med);
+                              const date = new Date(e.target.value);
+                              newHistory[globalIndex].timestamp = date.toISOString();
+                              setFormState(prev => ({
+                                ...prev,
+                                medicationHistory: newHistory
+                              }));
+                            }}
+                            required
+                          />
+                          <div className="dose-value-group">
+                            <input
+                              id={`dose-value-${asmType}-${index}`}
+                              name={`dose-value-${asmType}-${index}`}
+                              type="number"
+                              value={med.dosage}
+                              onChange={e => {
+                                const newHistory = [...formState.medicationHistory];
+                                const globalIndex = formState.medicationHistory.indexOf(med);
+                                newHistory[globalIndex].dosage = e.target.value;
+                                setFormState(prev => ({
+                                  ...prev,
+                                  medicationHistory: newHistory
+                                }));
+                              }}
+                              placeholder="Dosage"
+                              min="0"
+                              step="any"
+                              required
+                            />
+                            <select
+                              id={`dose-unit-${asmType}-${index}`}
+                              name={`dose-unit-${asmType}-${index}`}
+                              value={med.unit || 'mg'}
+                              onChange={e => {
+                                const newHistory = [...formState.medicationHistory];
+                                const globalIndex = formState.medicationHistory.indexOf(med);
+                                newHistory[globalIndex].unit = e.target.value;
+                                setFormState(prev => ({
+                                  ...prev,
+                                  medicationHistory: newHistory
+                                }));
+                              }}
+                            >
+                              <option value="ug">µg</option>
+                              <option value="mg">mg</option>
+                              <option value="g">g</option>
+                            </select>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const globalIndex = formState.medicationHistory.indexOf(med);
+                              deleteDose(globalIndex);
+                            }}
+                            aria-label="Delete dose"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
               </div>
             ))}
           </div>
@@ -255,14 +356,16 @@ function App() {
                       hour12: true
                     });
                   }}
-                  ticks={results.filter(point => {
-                    const date = new Date(point.time);
-                    // Show ticks only for even-numbered hours
-                    return date.getMinutes() === 0 && date.getHours() % 2 === 0;
-                  }).map(point => point.time)}
+                  ticks={[...new Set(results
+                    .filter(point => {
+                      const date = new Date(point.time);
+                      return date.getMinutes() === 0 && date.getHours() % 2 === 0;
+                    })
+                    .map(point => point.time)
+                  )]}
                   type="category"
                   interval={0}
-                  minTickGap={30}  // Add minimum gap between ticks
+                  minTickGap={30}
                 />
                 <YAxis
                   label={{
@@ -287,18 +390,96 @@ function App() {
                     });
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="concentration"
-                  stroke="#8884d8"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
+                {Array.from(new Set(results.map(r => r.asmType))).map((asmType, idx) => {
+                  const asmData = results.filter(r => r.asmType === asmType);
+                  return (
+                    <Line
+                      key={asmType}
+                      type="monotone"
+                      dataKey="concentration"
+                      data={asmData}
+                      stroke={['#8884d8', '#82ca9d', '#ffc658'][idx % 3]}
+                      name={asmType}
+                      dot={false}
+                      connectNulls
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           ) : (
             <p className="no-data">Add doses to view concentration over time</p>
           )}
+        </div>
+
+        <div className="asm-parameters-container">
+          <h2>ASM Parameters</h2>
+          <div className="asm-parameters-grid">
+            {Object.entries(formState.asmParameters).map(([asmName, params]) => (
+              <div key={asmName} className="asm-params-group">
+                <h3>{asmName}</h3>
+                <label htmlFor={`${asmName}-half-life`}>
+                  Half-life (hours):
+                  <input
+                    id={`${asmName}-half-life`}
+                    name={`${asmName}-half-life`}
+                    type="number"
+                    value={params.halfLife}
+                    onChange={e => setFormState(prev => ({
+                      ...prev,
+                      asmParameters: {
+                        ...prev.asmParameters,
+                        [asmName]: {
+                          ...prev.asmParameters[asmName],
+                          halfLife: e.target.value
+                        }
+                      }
+                    }))}
+                  />
+                </label>
+                <label htmlFor={`${asmName}-vd`}>
+                  Vd (L/kg):
+                  <input
+                    id={`${asmName}-vd`}
+                    name={`${asmName}-vd`}
+                    type="number"
+                    step="0.1"
+                    value={params.vd}
+                    onChange={e => setFormState(prev => ({
+                      ...prev,
+                      asmParameters: {
+                        ...prev.asmParameters,
+                        [asmName]: {
+                          ...prev.asmParameters[asmName],
+                          vd: e.target.value
+                        }
+                      }
+                    }))}
+                  />
+                </label>
+                <label htmlFor={`${asmName}-bioavailability`}>
+                  Bioavailability (%):
+                  <input
+                    id={`${asmName}-bioavailability`}
+                    name={`${asmName}-bioavailability`}
+                    type="number"
+                    step="1"
+                    value={params.bioavailability * 100}
+                    onChange={e => setFormState(prev => ({
+                      ...prev,
+                      asmParameters: {
+                        ...prev.asmParameters,
+                        [asmName]: {
+                          ...prev.asmParameters[asmName],
+                          bioavailability: e.target.value / 100
+                        }
+                      }
+                    }))}
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
       </form>
     </div>
