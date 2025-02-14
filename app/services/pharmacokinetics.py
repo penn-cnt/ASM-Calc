@@ -29,11 +29,29 @@ def calculate_drug_levels(medication_history, drug_params):
     if not sorted_meds:
         return [], []
 
-    # Create time points for calculation (hourly intervals)
+    # Create time points for calculation
     start_time = sorted_meds[0].timestamp
     end_time = sorted_meds[-1].timestamp + timedelta(hours=24)
+
+    # Round start time down to nearest hour
+    start_time = start_time.replace(minute=0, second=0, microsecond=0)
+
+    # Initialize arrays for exact hour points and medication times
     time_points = []
     current = start_time
+
+    # Add points every 10 minutes
+    while current <= end_time:
+        time_points.append(current)
+        current += timedelta(minutes=10)
+
+    # Add medication times to ensure we have those exact points
+    for med in sorted_meds:
+        if med.timestamp not in time_points:
+            time_points.append(med.timestamp)
+
+    # Sort all time points
+    time_points.sort()
 
     # Initialize drug model
     model = DrugModel(
@@ -46,12 +64,11 @@ def calculate_drug_levels(medication_history, drug_params):
     concentrations = []
     times = []
 
-    while current <= end_time:
+    for current in time_points:
         # Sum contributions from all previous doses
         total_concentration = 0
         for med in sorted_meds:
             if med.timestamp <= current and med.taken:
-                # The dosage is already a float, no need to split and convert
                 dose_mg = med.dosage
                 time_diff = (
                     current - med.timestamp
@@ -60,6 +77,5 @@ def calculate_drug_levels(medication_history, drug_params):
 
         concentrations.append(total_concentration)
         times.append(current)
-        current += timedelta(hours=1)
 
     return times, concentrations

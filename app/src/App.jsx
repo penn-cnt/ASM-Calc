@@ -12,6 +12,17 @@ const loadFromLocalStorage = () => {
   }
 };
 
+// Helper function to convert UTC ISO string to local datetime-local format
+const formatLocalDateTime = (isoString) => {
+  const date = new Date(isoString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 function App() {
   const [results, setResults] = useState([])
   const [formState, setFormState] = useState(() => {
@@ -85,10 +96,8 @@ function App() {
   };
 
   const addDose = () => {
-    // Get current date-time and format it to ISO string with local timezone offset
     const now = new Date();
-    const timeZoneOffset = now.getTimezoneOffset() * 60000; // convert minutes to milliseconds
-    const localISOTime = new Date(now - timeZoneOffset).toISOString().slice(0, -1);
+    const localISOTime = now.toISOString();  // Use UTC ISO string directly
 
     const newDose = {
       timestamp: localISOTime,
@@ -179,10 +188,11 @@ function App() {
                 <div className="dose-entry-inputs">
                   <input
                     type="datetime-local"
-                    value={med.timestamp.slice(0, 16)}
+                    value={formatLocalDateTime(med.timestamp)}
                     onChange={e => {
                       const newHistory = [...formState.medicationHistory];
-                      newHistory[index].timestamp = e.target.value + ':00Z';
+                      const date = new Date(e.target.value);
+                      newHistory[index].timestamp = date.toISOString();  // Store as UTC ISO string
                       setFormState({ ...formState, medicationHistory: newHistory });
                     }}
                     required
@@ -241,12 +251,18 @@ function App() {
                   tickFormatter={(time) => {
                     const date = new Date(time);
                     return date.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
+                      hour: 'numeric',
                       hour12: true
                     });
                   }}
-                  interval="preserveStartEnd"
+                  ticks={results.filter(point => {
+                    const date = new Date(point.time);
+                    // Show ticks only for even-numbered hours
+                    return date.getMinutes() === 0 && date.getHours() % 2 === 0;
+                  }).map(point => point.time)}
+                  type="category"
+                  interval={0}
+                  minTickGap={30}  // Add minimum gap between ticks
                 />
                 <YAxis
                   label={{
@@ -265,7 +281,7 @@ function App() {
                     return date.toLocaleString([], {
                       month: 'short',
                       day: 'numeric',
-                      hour: '2-digit',
+                      hour: 'numeric',
                       minute: '2-digit',
                       hour12: true
                     });

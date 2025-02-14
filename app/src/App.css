@@ -184,7 +184,7 @@ input[type="datetime-local"]:focus {
 
 .dose-entry input {
   margin: 0;
-  min-width: 0;
+  min-width: 4rem;
 }
 
 .dose-entry input[type="datetime-local"] {

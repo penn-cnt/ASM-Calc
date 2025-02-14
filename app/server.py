@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from services.pharmacokinetics import calculate_drug_levels
 
 app = Flask(__name__)
@@ -29,19 +29,11 @@ def calculate_concentrations():
             print(f"Dosage type: {type(med['dosage'])}")
             print(f"Dosage value: {med['dosage']}")
 
-        # Convert medication history to objects
-        try:
-            med_history = []
-            for med in data["medicationHistory"]:
-                print(f"Processing medication entry: {med}")  # Debug print
-                event = MedicationEvent(med["timestamp"], med["dosage"])
-                print(
-                    f"Created MedicationEvent: timestamp={event.timestamp}, dosage={event.dosage}"
-                )
-                med_history.append(event)
-        except Exception as e:
-            print(f"Error processing medication: {str(e)}")  # Debug print
-            return jsonify({"error": str(e)}), 400
+        # Convert medication history to objects with UTC timestamps
+        med_history = []
+        for med in data["medicationHistory"]:
+            event = MedicationEvent(med["timestamp"], med["dosage"])
+            med_history.append(event)
 
         # Get parameters with explicit type conversion
         params = {
@@ -79,37 +71,22 @@ DRUG_PARAMS = {
 
 
 class MedicationEvent:
-    def __init__(self, timestamp, dosage, taken=True):
-        try:
-            self.timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    def __init__(self, timestamp, dosage):
+        # Parse timestamp string to datetime object in UTC
+        if isinstance(timestamp, str):
+            try:
+                self.timestamp = datetime.fromisoformat(
+                    timestamp.replace("Z", "+00:00")
+                )
+            except ValueError:
+                self.timestamp = datetime.strptime(
+                    timestamp, "%Y-%m-%dT%H:%M:%S"
+                ).replace(tzinfo=timezone.utc)
+        else:
+            self.timestamp = timestamp
 
-            # Print debug info
-            print(f"Processing dosage: {dosage} (type: {type(dosage)})")
-
-            # More robust dosage handling
-            if isinstance(dosage, (int, float)):
-                self.dosage = float(dosage)
-            elif isinstance(dosage, str):
-                # Extract numeric value from string like "500 mg"
-                import re
-
-                match = re.search(r"(\d+(?:\.\d+)?)", dosage)
-                if not match:
-                    raise ValueError(f"No numeric value found in dosage: {dosage}")
-                self.dosage = float(match.group(1))
-            else:
-                raise ValueError(f"Unsupported dosage type: {type(dosage)}")
-
-            self.taken = taken
-
-            # Print successful creation
-            print(f"Successfully created MedicationEvent with dosage: {self.dosage}")
-
-        except Exception as e:
-            print(f"Error in MedicationEvent: {str(e)}")
-            print(f"Timestamp: {timestamp}")
-            print(f"Dosage: {dosage}")
-            raise ValueError(f"Invalid medication data: {str(e)}")
+        self.dosage = float(dosage)
+        self.taken = True
 
 
 @app.route("/")
