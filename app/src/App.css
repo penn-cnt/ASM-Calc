@@ -4,48 +4,56 @@
   width: 100%;
 }
 
+:root {
+  /* Color palette */
+  --primary-blue: #2196F3;
+  --primary-blue-dark: #1976D2;
+  --danger-red: #ef4444;
+  --danger-red-dark: #dc2626;
+
+  /* Text colors */
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #64748b;
+  --text-light: #888;
+
+  /* Background colors */
+  --bg-white: #ffffff;
+  --bg-light: #f8fafc;
+
+  /* Border colors */
+  --border-light: #e2e8f0;
+
+  /* Shadow colors */
+  --shadow-color: rgba(0, 0, 0, 0.05);
+
+  /* Spacing */
+  --spacing-xs: 0.4rem;
+  --spacing-sm: 0.8rem;
+  --spacing-md: 1.2rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 20px;
+
+  /* Font sizes */
+  --text-xs: 0.8rem;
+  --text-sm: 0.9rem;
+  --text-base: 0.95rem;
+  --text-lg: 1.1rem;
+  --text-xl: 1.2rem;
+  --text-2xl: 2.2rem;
+}
+
 .recharts-wrapper {
   font-family: inherit;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
 
 .app-container {
   max-width: 1400px;
@@ -54,9 +62,9 @@
 }
 
 h1 {
-  color: #2c3e50;
-  margin-bottom: 2rem;
-  font-size: 2.2rem;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xl);
+  font-size: var(--text-2xl);
   font-weight: 600;
 }
 
@@ -97,10 +105,10 @@ h1 {
 }
 
 .form-section {
-  background: #f8fafc;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-white);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 6px var(--shadow-color);
   width: 100%;
 }
 
@@ -114,17 +122,17 @@ h1 {
 }
 
 .form-section h2 {
-  margin: 0 0 1.2rem 0;
-  font-size: 1.2rem;
-  color: #1a202c;
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--text-xl);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 label {
   display: block;
-  margin-bottom: 1.2rem;
-  color: #4a5568;
-  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
 }
 
 input[type="number"],
@@ -133,9 +141,9 @@ input[type="datetime-local"] {
   width: 100%;
   padding: 0.6rem;
   margin-top: 0.4rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.95rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   transition: border-color 0.2s;
 }
 
@@ -143,35 +151,30 @@ input[type="number"]:focus,
 input[type="text"]:focus,
 input[type="datetime-local"]:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+  border-color: var(--primary-blue);
 }
 
 .add-dose-btn,
 .download-csv-btn {
-  background: #2196F3;
+  background: var(--primary-blue);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   transition: background-color 0.2s;
   font-weight: 500;
 }
 
 .add-dose-btn:hover,
 .download-csv-btn:hover {
-  background: #1976D2;
+  background: var(--primary-blue-dark);
 }
 
 .add-dose-btn {
   margin-bottom: 0;
   min-width: fit-content;
-}
-
-.calculate-btn:hover {
-  background: #43A047;
 }
 
 .dose-entry {
@@ -208,13 +211,13 @@ input[type="datetime-local"]:focus {
 }
 
 .dose-entry button {
-  background: #ef4444;
+  background: var(--danger-red);
   color: white;
   border: none;
   padding: 0;
   width: 1.8rem;
   height: 1.8rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background 0.2s;
   display: flex;
@@ -227,7 +230,7 @@ input[type="datetime-local"]:focus {
 }
 
 .dose-entry button:hover {
-  background: #dc2626;
+  background: var(--danger-red-dark);
 }
 
 .chart-container {
@@ -244,13 +247,17 @@ input[type="datetime-local"]:focus {
 
 .no-data {
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
   padding: 3rem;
-  font-size: 1.1rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  font-size: var(--text-lg);
+  background: var(--bg-light);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
 }
 
 .dose-value-group {
@@ -273,8 +280,8 @@ input[type="datetime-local"]:focus {
   padding: 0.6rem 0.4rem;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  background: #f8fafc;
-  color: #4a5568;
+  background: #ffffff;
+  color: #000000;
   font-size: 0.95rem;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -282,8 +289,7 @@ input[type="datetime-local"]:focus {
 
 .dose-value-group select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+  border-color: var(--primary-blue);
 }
 
 .button-row {
@@ -323,15 +329,16 @@ input[type="datetime-local"]:focus {
 
 .asm-parameters-grid .no-data {
   grid-column: 1 / -1;
+  min-height: 100px;
 }
 
 .asm-params-group {
-  background: #f8fafc;
   padding: 1.5rem;
-  border: 1px solid #e2e8f0;
   border-radius: 8px;
   transition: all 0.3s;
   display: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
 }
 
 .asm-params-group.enabled {
@@ -341,7 +348,6 @@ input[type="datetime-local"]:focus {
 .asm-params-group h3 {
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
-  color: #2d3748;
   font-weight: 600;
 }
 
@@ -359,7 +365,7 @@ input[type="datetime-local"]:focus {
 }
 
 .asm-dose-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .asm-dose-header {
@@ -447,6 +453,13 @@ input[type="datetime-local"]:focus {
   font-weight: 500;
   transition: all 0.2s;
   opacity: 1;
+  justify-content: space-between;
+}
+
+.asm-checkbox-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .asm-checkbox:not(:has(input:checked)) {
@@ -547,7 +560,109 @@ input[type="datetime-local"]:focus {
   color: #4a5568;
 }
 
-:root {
-  --gray-light: #e2e8f0;
-  --gray-dark: #94a3b8;
+.add-asm-btn {
+  background: #2196F3;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  width: fit-content;
+  align-self: flex-start;
+}
+
+.add-asm-btn:hover {
+  background: #1976D2;
+}
+
+.add-asm-form {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-asm-form input {
+  flex: 1;
+  margin: 0 !important;
+}
+
+.add-asm-form .confirm-btn {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 0 0 2px 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 0.8;
+  font-family: system-ui, -apple-system, sans-serif;
+  align-self: center;
+}
+
+.add-asm-form .confirm-btn:hover {
+  background: #1976D2;
+}
+
+.add-asm-form .cancel-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  font-family: system-ui, -apple-system, sans-serif;
+  align-self: center;
+}
+
+.add-asm-form .cancel-btn:hover {
+  background: #dc2626;
+}
+
+.chart-container .no-data {
+  min-height: 300px;
+}
+
+.asm-delete-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 0.8;
+  font-family: system-ui, -apple-system, sans-serif;
+  opacity: 0;
+}
+
+.asm-checkbox:hover .asm-delete-btn {
+  opacity: 1;
+}
+
+.asm-delete-btn:hover {
+  background: #dc2626;
 }
