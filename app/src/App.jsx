@@ -306,7 +306,6 @@ function App() {
 
   const addDose = () => {
     const now = new Date();
-    // Round to nearest minute by setting seconds and milliseconds to 0
     now.setSeconds(0, 0);
     const localISOTime = now.toISOString();
 
@@ -315,16 +314,23 @@ function App() {
       .find(([_, params]) => !params.isCollapsed)?.[0]
       || Object.keys(formState.asmParameters)[0];
 
-    const newDose = {
-      timestamp: localISOTime,
-      dosage: "500",
-      unit: "mg",
-      asmType: defaultAsmType,
-      taken: true
-    };
+    // Ensure the ASM section is expanded
     setFormState(prev => ({
       ...prev,
-      medicationHistory: [...prev.medicationHistory, newDose]
+      asmParameters: {
+        ...prev.asmParameters,
+        [defaultAsmType]: {
+          ...prev.asmParameters[defaultAsmType],
+          isCollapsed: false  // Ensure section is expanded
+        }
+      },
+      medicationHistory: [...prev.medicationHistory, {
+        timestamp: localISOTime,
+        dosage: "500",
+        unit: "mg",
+        asmType: defaultAsmType,
+        taken: true
+      }]
     }));
   };
 
@@ -631,16 +637,22 @@ function App() {
                             now.setSeconds(0, 0);
                             const localISOTime = now.toISOString();
 
-                            const newDose = {
-                              timestamp: localISOTime,
-                              dosage: String(params.defaultDosage),
-                              unit: params.defaultUnit,
-                              asmType: asmType,
-                              taken: true
-                            };
                             setFormState(prev => ({
                               ...prev,
-                              medicationHistory: [...prev.medicationHistory, newDose]
+                              asmParameters: {
+                                ...prev.asmParameters,
+                                [asmType]: {
+                                  ...prev.asmParameters[asmType],
+                                  isCollapsed: false  // Ensure section is expanded
+                                }
+                              },
+                              medicationHistory: [...prev.medicationHistory, {
+                                timestamp: localISOTime,
+                                dosage: String(params.defaultDosage),
+                                unit: params.defaultUnit,
+                                asmType: asmType,
+                                taken: true
+                              }]
                             }));
                             document.getElementById('add-dose-dropdown').style.display = 'none';
                           }}
@@ -657,7 +669,10 @@ function App() {
               Object.keys(formState.asmParameters)
                 .filter(asmType => formState.asmParameters[asmType].enabled)
                 .map(asmType => (
-                  <div key={asmType} className="asm-dose-group">
+                  <div
+                    key={asmType}
+                    className="asm-dose-group"
+                  >
                     <div
                       className="asm-dose-header"
                       onClick={() => {
@@ -677,7 +692,9 @@ function App() {
                         borderLeft: `4px solid ${getAsmColor(asmType)}`
                       }}
                     >
-                      <h3 style={{ color: getAsmColor(asmType) }}>{asmType}</h3>
+                      <h3 style={{ color: getAsmColor(asmType) }}>
+                        {asmType} ({formState.medicationHistory.filter(med => med.asmType === asmType).length})
+                      </h3>
                       <span
                         className="collapse-indicator"
                         style={{ color: getAsmColor(asmType) }}
