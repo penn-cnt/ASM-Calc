@@ -78,6 +78,12 @@ const processChartData = (rawData) => {
     }));
 };
 
+// Create constants for ASM-specific colors (without Total)
+const ASM_COLORS = {
+  'Levetiracetam': CHART_COLORS[1], // purple #8884d8
+  'Valproate': CHART_COLORS[2],     // green #82ca9d
+};
+
 function App() {
   const [results, setResults] = useState([]);
   const [chartData, setChartData] = useState([]);
@@ -152,11 +158,8 @@ function App() {
 
   useEffect(() => {
     if (results && results.length > 0) {
-      // Transform new server response format to Recharts-compatible format
-      const series = [];
-
-      // Get active ASMs
       const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+      const series = [];
 
       // Get keys from results, excluding 'time'
       const keys = Object.keys(results[0]).filter(k => k !== 'time');
@@ -164,14 +167,30 @@ function App() {
       // Only include Total if there are multiple active ASMs
       const displayKeys = activeASMs.length >= 2 ? keys : keys.filter(k => k !== 'Total');
 
-      displayKeys.forEach(key => {
+      // First add Total if it exists in displayKeys (always orange)
+      if (displayKeys.includes('Total')) {
         series.push({
-          name: key,
+          name: 'Total',
           data: results.map(d => ({
             time: new Date(d.time).getTime(),
-            concentration: d[key]
-          }))
+            concentration: d['Total']
+          })),
+          color: CHART_COLORS[0] // orange for Total
         });
+      }
+
+      // Then add individual ASMs with their consistent colors
+      activeASMs.forEach(asmType => {
+        if (displayKeys.includes(asmType)) {
+          series.push({
+            name: asmType,
+            data: results.map(d => ({
+              time: new Date(d.time).getTime(),
+              concentration: d[asmType]
+            })),
+            color: ASM_COLORS[asmType]
+          });
+        }
       });
 
       setChartData(series);
@@ -283,6 +302,12 @@ function App() {
     document.body.removeChild(link);
   };
 
+  // Update the getAsmColor function
+  const getAsmColor = (asmType) => {
+    // Always return the consistent color for each ASM
+    return ASM_COLORS[asmType];
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -350,21 +375,30 @@ function App() {
             {/* Group doses by ASM type */}
             {Object.keys(formState.asmParameters).map(asmType => (
               <div key={asmType} className="asm-dose-group">
-                <div className="asm-dose-header" onClick={() => {
-                  // Toggle visibility of this ASM type's doses
-                  setFormState(prev => ({
-                    ...prev,
-                    asmParameters: {
-                      ...prev.asmParameters,
-                      [asmType]: {
-                        ...prev.asmParameters[asmType],
-                        isCollapsed: !prev.asmParameters[asmType].isCollapsed
+                <div
+                  className="asm-dose-header"
+                  onClick={() => {
+                    setFormState(prev => ({
+                      ...prev,
+                      asmParameters: {
+                        ...prev.asmParameters,
+                        [asmType]: {
+                          ...prev.asmParameters[asmType],
+                          isCollapsed: !prev.asmParameters[asmType].isCollapsed
+                        }
                       }
-                    }
-                  }));
-                }}>
-                  <h3>{asmType}</h3>
-                  <span className="collapse-indicator">
+                    }));
+                  }}
+                  style={{
+                    backgroundColor: `${getAsmColor(asmType)}15`,
+                    borderLeft: `4px solid ${getAsmColor(asmType)}`
+                  }}
+                >
+                  <h3 style={{ color: getAsmColor(asmType) }}>{asmType}</h3>
+                  <span
+                    className="collapse-indicator"
+                    style={{ color: getAsmColor(asmType) }}
+                  >
                     {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
                   </span>
                 </div>
@@ -373,7 +407,15 @@ function App() {
                   formState.medicationHistory
                     .filter(med => med.asmType === asmType)
                     .map((med, index) => (
-                      <div key={`${asmType}-${index}`} className="dose-entry">
+                      <div
+                        key={`${asmType}-${index}`}
+                        className="dose-entry"
+                        style={{
+                          backgroundColor: `${getAsmColor(asmType)}08`,
+                          borderRadius: '4px',
+                          padding: '8px'
+                        }}
+                      >
                         <div className="dose-entry-inputs">
                           <input
                             id={`dose-time-${asmType}-${index}`}
@@ -452,7 +494,7 @@ function App() {
 
         <div className="chart-container">
           <div className="chart-header">
-            <h2>Concentration Over Time</h2>
+            <h2>ASM Concentration Over Time</h2>
             {chartData.length > 0 && (
               <button
                 type="button"
@@ -466,22 +508,60 @@ function App() {
           <div className="asm-selector">
             {(() => {
               const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
-              // Only show toggles if there are multiple ASMs
-              if (activeASMs.length < 2) {
-                return null;
+
+              if (activeASMs.length === 1) {
+                // For single ASM, just show the name with its color
+                const asmName = activeASMs[0];
+                const asmColor = ASM_COLORS[asmName];
+                return (
+                  <span
+                    className="asm-label"
+                    style={{
+                      color: asmColor,
+                      backgroundColor: `${asmColor}15`,
+                      borderLeft: `4px solid ${asmColor}`,
+                      fontWeight: 500
+                    }}
+                  >
+                    {asmName}
+                  </span>
+                );
               }
 
-              const displayedASMs = ['Total', ...activeASMs];
-              return displayedASMs.map(asm => (
-                <label key={asm} className="asm-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={visibleASMs.includes(asm)}
-                    onChange={() => toggleASM(asm)}
-                  />
-                  {asm}
-                </label>
-              ));
+              // Multiple ASMs - show toggles
+              if (activeASMs.length >= 2) {
+                const asmColorMap = new Map();
+                chartData.forEach((series) => {
+                  asmColorMap.set(series.name, series.color || CHART_COLORS[0]);
+                });
+
+                return chartData.map(series => {
+                  const color = asmColorMap.get(series.name);
+                  return (
+                    <label
+                      key={series.name}
+                      className="asm-checkbox"
+                      style={{
+                        '--checkbox-color': color,
+                        color: color,
+                        backgroundColor: `${color}15`,
+                        borderLeft: `4px solid ${color}`,
+                        padding: '4px 8px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleASMs.includes(series.name)}
+                        onChange={() => toggleASM(series.name)}
+                      />
+                      {series.name}
+                    </label>
+                  );
+                });
+              }
+
+              return null;
             })()}
           </div>
           {chartData.length > 0 ? (
@@ -548,14 +628,14 @@ function App() {
                     return null;
                   }}
                 />
-                {chartData.map((series, index) => (
+                {chartData.map((series) => (
                   <Line
                     key={series.name}
                     type="monotone"
                     dataKey="concentration"
                     data={series.data}
                     name={series.name}
-                    stroke={CHART_COLORS[index]}
+                    stroke={series.color || CHART_COLORS[0]} // Use series-specific color or fallback
                     strokeWidth={3}
                     dot={false}
                     opacity={series.name === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
