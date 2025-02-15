@@ -77,6 +77,13 @@ h1 {
   margin-top: 0;
   min-width: 0;
   flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.medication-history .no-data {
+  flex-grow: 1;
+  margin-top: 1rem;
 }
 
 .parameters-form {
@@ -240,6 +247,10 @@ input[type="datetime-local"]:focus {
   color: #64748b;
   padding: 3rem;
   font-size: 1.1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin: 0;
 }
 
 .dose-value-group {
@@ -306,8 +317,12 @@ input[type="datetime-local"]:focus {
 
 .asm-parameters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
+}
+
+.asm-parameters-grid .no-data {
+  grid-column: 1 / -1;
 }
 
 .asm-params-group {
@@ -315,6 +330,12 @@ input[type="datetime-local"]:focus {
   padding: 1.5rem;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  transition: all 0.3s;
+  display: none;
+}
+
+.asm-params-group.enabled {
+  display: block;
 }
 
 .asm-params-group h3 {
@@ -424,10 +445,29 @@ input[type="datetime-local"]:focus {
   gap: 8px;
   cursor: pointer;
   font-weight: 500;
-  transition: filter 0.2s;
+  transition: all 0.2s;
+  opacity: 1;
 }
 
-.asm-checkbox:hover {
+.asm-checkbox:not(:has(input:checked)) {
+  --checkbox-color: var(--gray-dark) !important;
+  color: var(--gray-dark) !important;
+  background-color: var(--gray-light) !important;
+  border-left-color: var(--gray-dark) !important;
+  opacity: 0.7;
+}
+
+.asm-checkbox:not(:has(input:checked)):hover {
+  --checkbox-color: #64748b !important;
+  /* Darker gray for hover */
+  color: #64748b !important;
+  background-color: #cbd5e1 !important;
+  /* Darker gray background for hover */
+  border-left-color: #64748b !important;
+  opacity: 0.8;
+}
+
+.asm-checkbox:has(input:checked):hover {
   filter: brightness(0.95);
 }
 
@@ -493,4 +533,21 @@ input[type="datetime-local"]:focus {
 
 .chart-header h2 {
   margin: 0;
+}
+
+.asm-toggle-group {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.asm-toggle-group h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #4a5568;
+}
+
+:root {
+  --gray-light: #e2e8f0;
+  --gray-dark: #94a3b8;
 }
