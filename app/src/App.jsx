@@ -51,6 +51,15 @@ const DEFAULT_ASM_PARAMETERS = {
   }
 };
 
+const CHART_COLORS = [
+  '#ff7300',  // Total (always first)
+  '#8884d8',  // First ASM
+  '#82ca9d',  // Second ASM
+  '#ffc658',  // Third ASM
+  '#d53e4f',  // Additional colors for future ASMs
+  '#377eb8',
+];
+
 const processChartData = (rawData) => {
   const grouped = rawData.reduce((acc, entry) => {
     const time = new Date(entry.time).getTime();
@@ -65,12 +74,14 @@ const processChartData = (rawData) => {
     .sort((a, b) => new Date(a.time) - new Date(b.time))
     .map(entry => ({
       ...entry,
-      time: new Date(entry.time).getTime() // Convert to timestamp
+      time: new Date(entry.time).getTime()
     }));
 };
 
 function App() {
-  const [results, setResults] = useState([])
+  const [results, setResults] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [visibleASMs, setVisibleASMs] = useState(['Total', ...Object.keys(DEFAULT_ASM_PARAMETERS)]);
   const [formState, setFormState] = useState(() => {
     const savedState = loadFromLocalStorage();
     // Clear localStorage if it contains old format data
@@ -132,13 +143,42 @@ function App() {
           console.error('Error calculating concentrations:', error);
         }
       } else {
-        // Clear results if there are no doses
         setResults([]);
       }
     };
 
     calculateConcentrations();
-  }, [formState]); // Now depends on formState changes
+  }, [formState]);
+
+  useEffect(() => {
+    if (results && results.length > 0) {
+      // Transform new server response format to Recharts-compatible format
+      const series = [];
+
+      // Get active ASMs
+      const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+
+      // Get keys from results, excluding 'time'
+      const keys = Object.keys(results[0]).filter(k => k !== 'time');
+
+      // Only include Total if there are multiple active ASMs
+      const displayKeys = activeASMs.length >= 2 ? keys : keys.filter(k => k !== 'Total');
+
+      displayKeys.forEach(key => {
+        series.push({
+          name: key,
+          data: results.map(d => ({
+            time: new Date(d.time).getTime(),
+            concentration: d[key]
+          }))
+        });
+      });
+
+      setChartData(series);
+    } else {
+      setChartData([]);
+    }
+  }, [results, formState.medicationHistory]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -165,6 +205,8 @@ function App() {
 
   const addDose = () => {
     const now = new Date();
+    // Round to nearest minute by setting seconds and milliseconds to 0
+    now.setSeconds(0, 0);
     const localISOTime = now.toISOString();
 
     // Find first non-collapsed ASM type
@@ -190,6 +232,55 @@ function App() {
       ...prev,
       medicationHistory: prev.medicationHistory.filter((_, i) => i !== index)
     }));
+  };
+
+  const toggleASM = (asmName) => {
+    const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+
+    // If there's only one ASM, don't allow toggling
+    if (activeASMs.length < 2) {
+      return;
+    }
+
+    setVisibleASMs(current => {
+      if (current.includes(asmName)) {
+        return current.filter(name => name !== asmName);
+      } else {
+        return [...current, asmName];
+      }
+    });
+  };
+
+  const downloadCSV = () => {
+    if (results.length === 0) return;
+
+    // Get ASM types that have doses in medication history
+    const activatedASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+
+    // Create headers with Time first, then individual ASMs, then Total last
+    const headers = ['Time', ...activatedASMs, 'Total'];
+
+    const csvContent = [
+      headers.join(','),
+      ...results.map(row => {
+        const time = new Date(row.time);
+        return headers.map(header => {
+          if (header === 'Time') {
+            return time.toISOString();
+          }
+          return (row[header] || 0).toFixed(2);
+        }).join(',');
+      })
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `asm_concentrations_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -231,6 +322,8 @@ function App() {
                       type="button"
                       onClick={() => {
                         const now = new Date();
+                        // Round to nearest minute
+                        now.setSeconds(0, 0);
                         const localISOTime = now.toISOString();
 
                         const newDose = {
@@ -358,12 +451,43 @@ function App() {
         </div>
 
         <div className="chart-container">
-          <h2>Concentration Over Time</h2>
-          {formState.medicationHistory.length > 0 ? (
+          <div className="chart-header">
+            <h2>Concentration Over Time</h2>
+            {chartData.length > 0 && (
+              <button
+                type="button"
+                onClick={downloadCSV}
+                className="download-csv-btn"
+              >
+                Download CSV
+              </button>
+            )}
+          </div>
+          <div className="asm-selector">
+            {(() => {
+              const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+              // Only show toggles if there are multiple ASMs
+              if (activeASMs.length < 2) {
+                return null;
+              }
+
+              const displayedASMs = ['Total', ...activeASMs];
+              return displayedASMs.map(asm => (
+                <label key={asm} className="asm-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={visibleASMs.includes(asm)}
+                    onChange={() => toggleASM(asm)}
+                  />
+                  {asm}
+                </label>
+              ));
+            })()}
+          </div>
+          {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={500}>
               <LineChart
                 margin={{ left: 50, right: 20, top: 20, bottom: 20 }}
-                data={processChartData(results)}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -397,21 +521,47 @@ function App() {
                 />
                 <Tooltip
                   labelFormatter={(value) => new Date(value).toLocaleString()}
+                  formatter={(value) => value.toFixed(2)}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      // Sort payload to put Total first
+                      const sortedPayload = [...payload].sort((a, b) => {
+                        if (a.name === 'Total') return -1;
+                        if (b.name === 'Total') return 1;
+                        return 0;
+                      });
+
+                      return (
+                        <div className="custom-tooltip">
+                          <p className="tooltip-time">{new Date(label).toLocaleString()}</p>
+                          {sortedPayload.map(entry => (
+                            <p
+                              key={entry.name}
+                              style={{ color: entry.color }}
+                            >
+                              {entry.name} : {entry.value.toFixed(2)}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
-                {Object.keys(formState.asmParameters).map((asmType, idx) => {
-                  const color = ['#8884d8', '#82ca9d', '#ffc658'][idx % 3];
-                  return (
-                    <Line
-                      key={asmType}
-                      type="monotone"
-                      dataKey={asmType}
-                      stroke={color}
-                      name={asmType}
-                      dot={false}
-                      connectNulls
-                    />
-                  );
-                })}
+                {chartData.map((series, index) => (
+                  <Line
+                    key={series.name}
+                    type="monotone"
+                    dataKey="concentration"
+                    data={series.data}
+                    name={series.name}
+                    stroke={CHART_COLORS[index]}
+                    strokeWidth={3}
+                    dot={false}
+                    opacity={series.name === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
+                    hide={series.name !== 'Total' && !visibleASMs.includes(series.name)}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           ) : (

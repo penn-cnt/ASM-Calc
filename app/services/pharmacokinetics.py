@@ -22,8 +22,8 @@ class DrugModel:
         return max(0, concentration)  # Ensure non-negative concentration
 
 
-def calculate_drug_levels(medication_history, drug_params):
-    """Calculate drug concentrations for a single ASM type"""
+def calculate_drug_levels(medication_history, drug_params, global_time_points):
+    """Calculate drug concentrations using predefined time points"""
     if not medication_history:
         return [], []
 
@@ -35,54 +35,27 @@ def calculate_drug_levels(medication_history, drug_params):
 
     # Sort medications by timestamp
     sorted_meds = sorted(medication_history, key=lambda x: x.timestamp)
-    if not sorted_meds:
-        return [], []
-
-    # Find global start/end times across all ASMs
-    all_med_times = [m.timestamp for m in medication_history]
-    global_start = min(all_med_times).astimezone(timezone.utc)
-    global_end = max(all_med_times).astimezone(timezone.utc) + timedelta(
-        hours=24 * 5
-    )  # Extend 5 days past last dose
-
-    # Create time points in UTC covering full range
-    current = global_start.replace(minute=0, second=0, microsecond=0)
-    time_points = []
-    while current <= global_end:
-        time_points.append(current)
-        current += timedelta(minutes=10)
-
-    # Add medication times to ensure we have those exact points
-    for med in sorted_meds:
-        if med.timestamp not in time_points:
-            time_points.append(med.timestamp)
-
-    # Sort all time points
-    time_points.sort()
 
     # Initialize drug model
     model = DrugModel(
         half_life_hours=drug_params["half_life"],
         volume_of_distribution=drug_params["vd"],
-        bioavailability=drug_params.get("bioavailability", 1.0),
+        bioavailability=drug_params["bioavailability"],
     )
 
-    # Calculate concentrations at each time point
+    # Calculate concentrations at each global time point
     concentrations = []
     times = []
 
-    for current in time_points:
-        # Sum contributions from all previous doses
+    for current_time in global_time_points:
         total_concentration = 0
         for med in sorted_meds:
-            if med.timestamp <= current and med.taken:
+            if med.timestamp <= current_time and med.taken:
                 dose_mg = med.dosage
-                time_diff = (
-                    current - med.timestamp
-                ).total_seconds() / 3600  # Convert to hours
+                time_diff = (current_time - med.timestamp).total_seconds() / 3600
                 total_concentration += model.calculate_concentration(dose_mg, time_diff)
 
         concentrations.append(total_concentration)
-        times.append(current)
+        times.append(current_time)
 
     return times, concentrations

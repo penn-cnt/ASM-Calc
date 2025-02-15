@@ -406,3 +406,74 @@ input[type="datetime-local"]:focus {
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
 }
+
+.asm-selector {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.asm-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+
+.asm-checkbox:hover {
+  background: #edf2f7;
+}
+
+.asm-checkbox input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.custom-tooltip {
+  background: white;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.tooltip-time {
+  margin: 0 0 8px 0;
+  color: #666;
+}
+
+.custom-tooltip p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chart-header h2 {
+  margin: 0;
+}
+
+.download-csv-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.download-csv-btn:hover {
+  background: #43A047;
+}

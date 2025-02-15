@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from datetime import datetime, timedelta, timezone
-from services.pharmacokinetics import calculate_drug_levels
+from services.pharmacokinetics import calculate_drug_levels, DrugModel
 
 app = Flask(__name__)
 
@@ -49,8 +49,35 @@ def calculate_concentrations():
                     400,
                 )
 
-        # Calculate concentrations for each ASM type
+        # Calculate concentrations using shared time points
         all_results = []
+        time_to_concentrations = {}
+
+        # Create global time points using all medications across all ASMs
+        all_med_times = [
+            datetime.fromisoformat(m["timestamp"].replace("Z", "+00:00"))
+            for m in data["medicationHistory"]
+        ]
+        if not all_med_times:
+            return jsonify([])
+
+        global_start = min(all_med_times).astimezone(timezone.utc)
+        global_end = max(all_med_times).astimezone(timezone.utc) + timedelta(
+            hours=24 * 5
+        )
+
+        # Generate time points every 10 minutes
+        current = global_start.replace(minute=0, second=0, microsecond=0)
+        global_time_points = []
+        while current <= global_end:
+            global_time_points.append(current)
+            current += timedelta(minutes=10)
+
+        # Add all medication times and sort
+        global_time_points.extend(all_med_times)
+        global_time_points = sorted(list(set(global_time_points)))
+
+        # Calculate concentrations for each ASM using the same time points
         for asm_name, params in asm_params.items():
             # Filter medications for this ASM type
             asm_meds = [m for m in med_history if m.asm_type == asm_name]
@@ -58,23 +85,35 @@ def calculate_concentrations():
                 continue
 
             try:
-                times, concentrations = calculate_drug_levels(asm_meds, params)
-                all_results.extend(
-                    [
-                        {
-                            "time": t.isoformat(),
-                            "concentration": round(c, 2),
-                            "asmType": asm_name,
-                        }
-                        for t, c in zip(times, concentrations)
-                    ]
+                # Calculate concentrations at global time points
+                times, concentrations = calculate_drug_levels(
+                    asm_meds,
+                    params,
+                    global_time_points,  # Pass the precomputed time points
                 )
+
+                # Store concentrations for each time point
+                for t, c in zip(times, concentrations):
+                    time_str = t.isoformat()
+                    if time_str not in time_to_concentrations:
+                        time_to_concentrations[time_str] = {"Total": 0}
+                    time_to_concentrations[time_str][asm_name] = c
+                    time_to_concentrations[time_str]["Total"] += c
+
             except Exception as e:
                 print(f"Error calculating concentrations for {asm_name}: {e}")
                 return (
                     jsonify({"error": f"Calculation failed for {asm_name}: {str(e)}"}),
                     500,
                 )
+
+        # Convert to final results format
+        for time_str, concentrations in time_to_concentrations.items():
+            entry = {"time": time_str, **concentrations}
+            all_results.append(entry)
+
+        # Sort final results by time
+        all_results.sort(key=lambda x: x["time"])
 
         return jsonify(all_results)
 
