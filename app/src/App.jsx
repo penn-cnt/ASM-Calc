@@ -18,7 +18,18 @@ const TIME_RANGES = [
 const loadFromLocalStorage = () => {
   try {
     const savedState = localStorage.getItem('formState');
-    if (!savedState) return null;
+    if (!savedState) {
+      // First time load - use default ASMs
+      const defaultState = {
+        weight: 70,
+        asmParameters: DEFAULT_ASM_PARAMETERS,
+        medicationHistory: []
+      };
+      // Also set default visibleASMs
+      const defaultVisibleASMs = Object.keys(DEFAULT_ASM_PARAMETERS);
+      localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(defaultVisibleASMs));
+      return { ...defaultState, visibleASMs: defaultVisibleASMs };
+    }
 
     const parsedState = JSON.parse(savedState);
 
@@ -28,48 +39,26 @@ const loadFromLocalStorage = () => {
       Object.assign(ASM_COLORS, JSON.parse(savedColors));
     }
 
-    // Load saved custom ASMs and merge with defaults
-    const savedCustomAsms = localStorage.getItem(CUSTOM_ASMS_KEY);
-    if (savedCustomAsms) {
-      const customAsms = JSON.parse(savedCustomAsms);
-      Object.assign(DEFAULT_ASM_PARAMETERS, customAsms);
-    }
-
     // Load saved visible ASMs
     const savedVisibleASMs = localStorage.getItem(VISIBLE_ASMS_KEY);
-    if (savedVisibleASMs) {
-      parsedState.visibleASMs = JSON.parse(savedVisibleASMs);
-    }
+    const visibleASMs = savedVisibleASMs ? JSON.parse(savedVisibleASMs) : Object.keys(parsedState.asmParameters || {});
 
-    // Merge saved ASM parameters with defaults
-    if (parsedState.asmParameters) {
-      parsedState.asmParameters = Object.fromEntries(
-        Object.entries(DEFAULT_ASM_PARAMETERS).map(([asmName, defaultParams]) => {
-          const savedParams = parsedState.asmParameters[asmName] || {};
-          return [asmName, {
-            ...defaultParams,
-            ...savedParams,
-            enabled: savedParams.enabled ?? defaultParams.enabled,
-            defaultDosage: savedParams.defaultDosage ?? defaultParams.defaultDosage,
-            defaultUnit: savedParams.defaultUnit ?? defaultParams.defaultUnit
-          }];
-        })
-      );
-    }
-
-    // Ensure all medication entries have string dosage values
-    if (parsedState.medicationHistory) {
-      parsedState.medicationHistory = parsedState.medicationHistory.map(med => ({
-        ...med,
-        asmType: med.asmType || Object.keys(DEFAULT_ASM_PARAMETERS)[0],
-        dosage: med.dosage.toString() // Convert to string
-      }));
-    }
-
-    return parsedState;
+    // Return combined state
+    return {
+      weight: parsedState.weight || 70,
+      asmParameters: parsedState.asmParameters || {},
+      medicationHistory: parsedState.medicationHistory || [],
+      visibleASMs
+    };
   } catch (error) {
     console.error('Error loading from localStorage:', error);
-    return null;
+    const defaultState = {
+      weight: 70,
+      asmParameters: DEFAULT_ASM_PARAMETERS,
+      medicationHistory: [],
+      visibleASMs: Object.keys(DEFAULT_ASM_PARAMETERS)
+    };
+    return defaultState;
   }
 };
 
@@ -84,14 +73,13 @@ const formatLocalDateTime = (isoString) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-// Update DEFAULT_ASM_PARAMETERS to add a third ASM and set isCollapsed to false
+// Update DEFAULT_ASM_PARAMETERS to remove enabled property
 const DEFAULT_ASM_PARAMETERS = {
   'Levetiracetam': {
     halfLife: 6,
     vd: 0.7,
     bioavailability: 1.0,
     isCollapsed: false,
-    enabled: false,
     defaultDosage: 500,
     defaultUnit: 'mg'
   },
@@ -100,16 +88,14 @@ const DEFAULT_ASM_PARAMETERS = {
     vd: 0.2,
     bioavailability: 0.9,
     isCollapsed: false,
-    enabled: false,
     defaultDosage: 200,
     defaultUnit: 'mg'
   },
-  'Carbamazepine': {  // Add third ASM
+  'Carbamazepine': {
     halfLife: 12,
     vd: 1.4,
     bioavailability: 0.8,
     isCollapsed: false,
-    enabled: false,
     defaultDosage: 200,
     defaultUnit: 'mg'
   }
@@ -120,7 +106,6 @@ const DEFAULT_ASM_TEMPLATE = {
   vd: 0.7,
   bioavailability: 1.0,
   isCollapsed: false,
-  enabled: true,
   defaultDosage: 200,
   defaultUnit: 'mg'
 };
@@ -165,12 +150,19 @@ const ASM_COLORS = {
 
 const TOTAL_COLOR = CHART_COLORS[0];
 
+// Add this constant to track default color positions
+const DEFAULT_COLOR_POSITIONS = {
+  'Levetiracetam': 1,  // blue
+  'Valproate': 2,      // darker blue
+  'Carbamazepine': 3   // green
+};
+
 function App() {
   const [results, setResults] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [visibleASMs, setVisibleASMs] = useState(() => {
     const savedState = loadFromLocalStorage();
-    return savedState?.visibleASMs || ['Total', ...Object.keys(DEFAULT_ASM_PARAMETERS)];
+    return savedState.visibleASMs;
   });
   const [formState, setFormState] = useState(() => {
     const savedState = loadFromLocalStorage();
@@ -182,11 +174,7 @@ function App() {
         medicationHistory: []
       };
     }
-    return {
-      weight: savedState?.weight || 70,
-      asmParameters: savedState?.asmParameters || DEFAULT_ASM_PARAMETERS,
-      medicationHistory: savedState?.medicationHistory || []
-    };
+    return savedState;
   });
 
   const [showAddAsmForm, setShowAddAsmForm] = useState(false);
@@ -195,6 +183,8 @@ function App() {
 
   const [timeRange, setTimeRange] = useState(24);
   const [timeOffset, setTimeOffset] = useState(0);
+
+  const [expandedAsmType, setExpandedAsmType] = useState(null);
 
   useEffect(() => {
     try {
@@ -241,8 +231,9 @@ function App() {
 
         setChartData(series);
 
-        // Add Total to visible ASMs if multiple ASMs are active
-        if (series.length >= 3 && !visibleASMs.includes('Total')) {  // 3 because Total counts as one
+        // Add Total to visible ASMs if multiple ASMs have data
+        const asmsWithData = series.filter(s => s.asm !== 'Total').length;
+        if (asmsWithData >= 2 && !visibleASMs.includes('Total')) {
           setVisibleASMs(prev => [...prev, 'Total']);
         }
 
@@ -316,17 +307,12 @@ function App() {
   };
 
   const toggleASM = (asmName) => {
-    const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
-
-    // If there's only one ASM, don't allow toggling
-    if (activeASMs.length < 2) {
-      return;
-    }
-
     setVisibleASMs(current => {
       const newVisibleASMs = current.includes(asmName)
         ? current.filter(name => name !== asmName)
         : [...current, asmName];
+
+      // Save to localStorage
       localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(newVisibleASMs));
       return newVisibleASMs;
     });
@@ -392,6 +378,7 @@ function App() {
     return ASM_COLORS[asmType];
   };
 
+  // Update handleAddCustomAsm to use stored colors first
   const handleAddCustomAsm = () => {
     if (!newAsmName.trim()) {
       alert('Please enter an ASM name');
@@ -406,26 +393,26 @@ function App() {
       return;
     }
 
-    // Find the first unused color from CHART_COLORS, excluding the Total color
-    const usedColors = new Set([CHART_COLORS[0], ...Object.values(ASM_COLORS)]); // Include Total color
-    const newColor = CHART_COLORS.slice(1).find(color => !usedColors.has(color)) ||
-      CHART_COLORS[1 + (Object.keys(formState.asmParameters).length % (CHART_COLORS.length - 1))];
+    // Get available colors from localStorage
+    let availableColors = JSON.parse(localStorage.getItem('availableColors') || '[]');
 
-    // Update ASM colors first
+    // Get the next color (either from available colors or from CHART_COLORS)
+    let newColor;
+    if (availableColors.length > 0) {
+      newColor = availableColors.shift(); // Take the first available color
+      localStorage.setItem('availableColors', JSON.stringify(availableColors));
+    } else {
+      // If no stored colors, use the next unused color from CHART_COLORS
+      const usedColors = new Set(Object.values(ASM_COLORS));
+      newColor = CHART_COLORS.slice(1).find(color => !usedColors.has(color)) ||
+        CHART_COLORS[1 + (Object.keys(formState.asmParameters).length % (CHART_COLORS.length - 1))];
+    }
+
+    // Update ASM colors
     ASM_COLORS[newAsmName] = newColor;
 
     // Save updated colors to localStorage
     localStorage.setItem(ASM_COLORS_KEY, JSON.stringify(ASM_COLORS));
-
-    // Add new ASM to DEFAULT_ASM_PARAMETERS
-    DEFAULT_ASM_PARAMETERS[newAsmName] = { ...DEFAULT_ASM_TEMPLATE };
-
-    // Save custom ASMs to localStorage
-    const customAsms = Object.fromEntries(
-      Object.entries(DEFAULT_ASM_PARAMETERS)
-        .filter(([name]) => !['Levetiracetam', 'Valproate', 'Carbamazepine'].includes(name))
-    );
-    localStorage.setItem(CUSTOM_ASMS_KEY, JSON.stringify(customAsms));
 
     // Add new ASM to parameters
     setFormState(prev => ({
@@ -451,17 +438,14 @@ function App() {
     localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(visibleASMs));
   }, [visibleASMs]);
 
-  // Add this function to handle ASM deletion
+  // Update handleDeleteASM to store the deleted color
   const handleDeleteASM = (asmName) => {
-    // Don't allow deleting if it's one of the default ASMs
-    if (['Levetiracetam', 'Valproate', 'Carbamazepine'].includes(asmName)) {
-      alert('Default ASMs cannot be deleted');
-      return;
-    }
-
     if (!confirm(`Are you sure you want to delete ${asmName}? This will remove all doses and parameters associated with it.`)) {
       return;
     }
+
+    // Store the color of the ASM being deleted
+    const deletedColor = ASM_COLORS[asmName];
 
     // Remove from ASM parameters
     const newAsmParameters = { ...formState.asmParameters };
@@ -481,17 +465,13 @@ function App() {
       medicationHistory: prev.medicationHistory.filter(med => med.asmType !== asmName)
     }));
 
+    // Store the deleted color at the front of available colors array
+    if (deletedColor && !Object.values(newAsmColors).includes(deletedColor)) {
+      localStorage.setItem('availableColors', JSON.stringify([deletedColor, ...JSON.parse(localStorage.getItem('availableColors') || '[]')]));
+    }
+
     // Update localStorage
     localStorage.setItem(ASM_COLORS_KEY, JSON.stringify(newAsmColors));
-
-    // Update custom ASMs in localStorage
-    const customAsms = Object.fromEntries(
-      Object.entries(newAsmParameters)
-        .filter(([name]) => !['Levetiracetam', 'Valproate', 'Carbamazepine'].includes(name))
-    );
-    localStorage.setItem(CUSTOM_ASMS_KEY, JSON.stringify(customAsms));
-
-    // Update ASM_COLORS object
     Object.assign(ASM_COLORS, newAsmColors);
   };
 
@@ -564,6 +544,46 @@ function App() {
     return [start.getTime(), end.getTime()];
   };
 
+  // Add this helper function to get all active ASM names
+  const getAllAsmNames = (chartData) => {
+    return chartData.map(series => series.asm);
+  };
+
+  // Add this function to handle expanding the ASM section
+  const handleExpandAsm = (asmType) => {
+    setFormState(prev => ({
+      ...prev,
+      asmParameters: {
+        ...prev.asmParameters,
+        [asmType]: {
+          ...prev.asmParameters[asmType],
+          isCollapsed: false
+        }
+      }
+    }));
+  };
+
+  // Update the quick add button click handler
+  const handleQuickAdd = (e, asmType) => {
+    e.stopPropagation(); // Prevent header click event
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const localISOTime = now.toISOString();
+
+    handleExpandAsm(asmType); // Expand the section
+
+    setFormState(prev => ({
+      ...prev,
+      medicationHistory: [...prev.medicationHistory, {
+        timestamp: localISOTime,
+        dosage: String(formState.asmParameters[asmType].defaultDosage),
+        unit: formState.asmParameters[asmType].defaultUnit,
+        asmType: asmType,
+        taken: true
+      }]
+    }));
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -589,9 +609,9 @@ function App() {
             </label>
 
             <div className="asm-toggle-group">
-              <h3>Available ASMs</h3>
+              <h3>Active ASMs</h3>
               {Object.entries(formState.asmParameters).map(([asmName, params]) => (
-                <label
+                <div
                   key={asmName}
                   className="asm-checkbox"
                   style={{
@@ -604,22 +624,6 @@ function App() {
                   }}
                 >
                   <div className="asm-checkbox-content">
-                    <input
-                      type="checkbox"
-                      checked={params.enabled}
-                      onChange={(e) => {
-                        const newParams = { ...formState.asmParameters };
-                        newParams[asmName].enabled = e.target.checked;
-
-                        setFormState(prev => ({
-                          ...prev,
-                          asmParameters: newParams,
-                          medicationHistory: prev.medicationHistory.filter(
-                            med => med.asmType !== asmName || e.target.checked
-                          )
-                        }));
-                      }}
-                    />
                     {asmName}
                   </div>
                   <button
@@ -632,7 +636,7 @@ function App() {
                   >
                     ×
                   </button>
-                </label>
+                </div>
               ))}
 
               {showAddAsmForm ? (
@@ -690,17 +694,27 @@ function App() {
                 </button>
                 <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
                   {Object.keys(formState.asmParameters)
-                    .filter(asmType => formState.asmParameters[asmType].enabled)
                     .map(asmType => {
                       const params = formState.asmParameters[asmType];
                       return (
                         <button
                           key={asmType}
                           type="button"
+                          style={{
+                            color: ASM_COLORS[asmType],
+                            backgroundColor: `${ASM_COLORS[asmType]}15`,
+                            borderLeft: `4px solid ${ASM_COLORS[asmType]}`
+                          }}
                           onClick={() => {
                             const now = new Date();
                             now.setSeconds(0, 0);
                             const localISOTime = now.toISOString();
+
+                            // Make sure the ASM is visible in the chart
+                            if (!visibleASMs.includes(asmType)) {
+                              setVisibleASMs(prev => [...prev, asmType]);
+                              localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify([...visibleASMs, asmType]));
+                            }
 
                             setFormState(prev => ({
                               ...prev,
@@ -708,7 +722,7 @@ function App() {
                                 ...prev.asmParameters,
                                 [asmType]: {
                                   ...prev.asmParameters[asmType],
-                                  isCollapsed: false  // Ensure section is expanded
+                                  isCollapsed: false
                                 }
                               },
                               medicationHistory: [...prev.medicationHistory, {
@@ -729,49 +743,64 @@ function App() {
                 </div>
               </div>
             </div>
-            {Object.values(formState.asmParameters).some(p => p.enabled) ? (
-              /* Group doses by ASM type */
-              Object.keys(formState.asmParameters)
-                .filter(asmType => formState.asmParameters[asmType].enabled)
-                .map(asmType => (
-                  <div
-                    key={asmType}
-                    className="asm-dose-group"
-                  >
-                    <div
-                      className="asm-dose-header"
-                      onClick={() => {
-                        setFormState(prev => ({
-                          ...prev,
-                          asmParameters: {
-                            ...prev.asmParameters,
-                            [asmType]: {
-                              ...prev.asmParameters[asmType],
-                              isCollapsed: !prev.asmParameters[asmType].isCollapsed
-                            }
-                          }
-                        }));
-                      }}
-                      style={{
-                        backgroundColor: `${getAsmColor(asmType)}15`,
-                        borderLeft: `4px solid ${getAsmColor(asmType)}`
-                      }}
-                    >
-                      <h3 style={{ color: getAsmColor(asmType) }}>
-                        {asmType} ({formState.medicationHistory.filter(med => med.asmType === asmType).length})
-                      </h3>
-                      <span
-                        className="collapse-indicator"
-                        style={{ color: getAsmColor(asmType) }}
-                      >
-                        {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
-                      </span>
-                    </div>
+            {Object.keys(formState.asmParameters).length > 0 ? (
+              formState.medicationHistory.length > 0 ? (
+                Object.keys(formState.asmParameters)
+                  .map(asmType => {
+                    const doses = formState.medicationHistory.filter(med => med.asmType === asmType);
+                    if (doses.length === 0) return null;
 
-                    {!formState.asmParameters[asmType].isCollapsed &&
-                      formState.medicationHistory
-                        .filter(med => med.asmType === asmType)
-                        .map((med, index) => (
+                    return (
+                      <div
+                        key={asmType}
+                        className="asm-dose-group"
+                      >
+                        <div
+                          className="asm-dose-header"
+                          onClick={() => {
+                            setFormState(prev => ({
+                              ...prev,
+                              asmParameters: {
+                                ...prev.asmParameters,
+                                [asmType]: {
+                                  ...prev.asmParameters[asmType],
+                                  isCollapsed: !prev.asmParameters[asmType].isCollapsed
+                                }
+                              }
+                            }));
+                          }}
+                          style={{
+                            backgroundColor: `${getAsmColor(asmType)}15`,
+                            borderLeft: `4px solid ${getAsmColor(asmType)}`,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <h3 style={{ color: getAsmColor(asmType) }}>
+                            {asmType} ({doses.length})
+                          </h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <button
+                              type="button"
+                              className="quick-add-btn"
+                              onClick={(e) => handleQuickAdd(e, asmType)}
+                              style={{
+                                color: getAsmColor(asmType),
+                                border: `1px solid ${getAsmColor(asmType)}`,
+                                backgroundColor: '#fff'
+                              }}
+                            >
+                              Quick Add
+                            </button>
+                            <span
+                              className="collapse-indicator"
+                              style={{ color: getAsmColor(asmType) }}
+                            >
+                              {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {!formState.asmParameters[asmType].isCollapsed && doses.map((med, index) => (
                           <div
                             key={`${asmType}-${index}`}
                             className="dose-entry"
@@ -783,8 +812,6 @@ function App() {
                           >
                             <div className="dose-entry-inputs">
                               <input
-                                id={`dose-time-${asmType}-${index}`}
-                                name={`dose-time-${asmType}-${index}`}
                                 type="datetime-local"
                                 value={formatLocalDateTime(med.timestamp)}
                                 onChange={(e) => {
@@ -795,8 +822,6 @@ function App() {
                               />
                               <div className="dose-value-group">
                                 <input
-                                  id={`dose-value-${asmType}-${index}`}
-                                  name={`dose-value-${asmType}-${index}`}
                                   type="number"
                                   value={med.dosage}
                                   onChange={e => {
@@ -814,8 +839,6 @@ function App() {
                                   required
                                 />
                                 <select
-                                  id={`dose-unit-${asmType}-${index}`}
-                                  name={`dose-unit-${asmType}-${index}`}
                                   value={med.unit || 'mg'}
                                   onChange={e => {
                                     const newHistory = [...formState.medicationHistory];
@@ -845,10 +868,14 @@ function App() {
                             </div>
                           </div>
                         ))}
-                  </div>
-                ))
+                      </div>
+                    );
+                  })
+              ) : (
+                <p className="no-data">Click "Add New Dose" to begin the medication history</p>
+              )
             ) : (
-              <p className="no-data">Choose an ASM on the left to add doses</p>
+              <p className="no-data">Add an ASM on the left before adding a dose</p>
             )}
           </div>
         </div>
@@ -861,7 +888,10 @@ function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setTimeOffset(0); // Only reset offset to current time
+                    setTimeOffset(0); // Reset offset to current time
+                    // Show all active ASMs
+                    const allAsms = getAllAsmNames(chartData);
+                    setVisibleASMs(allAsms);
                   }}
                   className="time-shift-btn reset-btn"
                   title="Reset to current time"
@@ -935,59 +965,34 @@ function App() {
             {(() => {
               const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
 
-              if (activeASMs.length === 1) {
-                // For single ASM, just show the name with its color
-                const asmName = activeASMs[0];
-                const asmColor = ASM_COLORS[asmName];
-                return (
-                  <span
-                    key={`selector-${asmName}`}
-                    className="asm-label"
-                    style={{
-                      color: asmColor,
-                      backgroundColor: `${asmColor}15`,
-                      borderLeft: `4px solid ${asmColor}`,
-                      fontWeight: 500
-                    }}
-                  >
-                    {asmName}
-                  </span>
-                );
-              }
+              // Sort series to ensure Total is first
+              const sortedSeries = [...chartData].sort((a, b) => {
+                if (a.asm === 'Total') return -1;
+                if (b.asm === 'Total') return 1;
+                return 0;
+              });
 
-              // Multiple ASMs - show toggles
-              if (activeASMs.length >= 2) {
-                // Sort series to ensure Total is first
-                const sortedSeries = [...chartData].sort((a, b) => {
-                  if (a.asm === 'Total') return -1;
-                  if (b.asm === 'Total') return 1;
-                  return 0;
-                });
-
-                return sortedSeries.map(series => (
-                  <label
-                    key={`selector-${series.asm}`}
-                    className="asm-checkbox"
-                    style={{
-                      '--checkbox-color': getAsmColor(series.asm),
-                      color: getAsmColor(series.asm),
-                      backgroundColor: `${getAsmColor(series.asm)}15`,
-                      borderLeft: `4px solid ${getAsmColor(series.asm)}`,
-                      padding: '4px 8px',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={visibleASMs.includes(series.asm)}
-                      onChange={() => toggleASM(series.asm)}
-                    />
-                    {series.asm}
-                  </label>
-                ));
-              }
-
-              return null;
+              return sortedSeries.map(series => (
+                <label
+                  key={`selector-${series.asm}`}
+                  className="asm-selector-checkbox"
+                  style={{
+                    '--checkbox-color': getAsmColor(series.asm),
+                    color: getAsmColor(series.asm),
+                    backgroundColor: `${getAsmColor(series.asm)}15`,
+                    borderLeft: `4px solid ${getAsmColor(series.asm)}`,
+                    padding: '4px 8px',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleASMs.includes(series.asm)}
+                    onChange={() => toggleASM(series.asm)}
+                  />
+                  {series.asm}
+                </label>
+              ));
             })()}
           </div>
           {chartData.length > 0 ? (
@@ -1152,11 +1157,10 @@ function App() {
           <h2>ASM Parameters</h2>
           <div className="asm-parameters-grid">
             {Object.entries(formState.asmParameters)
-              .filter(([_, params]) => params.enabled)
               .map(([asmName, params]) => (
                 <div
                   key={asmName}
-                  className={`asm-params-group ${params.enabled ? 'enabled' : ''}`}
+                  className="asm-params-group"
                   style={{
                     backgroundColor: `${ASM_COLORS[asmName]}08`,
                     borderLeft: `4px solid ${ASM_COLORS[asmName]}`
@@ -1224,8 +1228,8 @@ function App() {
                   </label>
                 </div>
               ))}
-            {!Object.values(formState.asmParameters).some(p => p.enabled) && (
-              <p className="no-data">Choose an ASM to view and edit parameters</p>
+            {Object.keys(formState.asmParameters).length === 0 && (
+              <p className="no-data">Add an ASM above to view and edit parameters</p>
             )}
           </div>
         </div>
