@@ -106,7 +106,7 @@ h1 {
 
 .form-section {
   background: var(--bg-white);
-  padding: var(--spacing-lg);
+  padding: 2rem;
   border-radius: var(--radius-lg);
   box-shadow: 0 4px 6px var(--shadow-color);
   width: 100%;
@@ -357,10 +357,6 @@ input[type="datetime-local"]:focus {
   width: 120px;
   margin-top: 0;
   margin-left: 1rem;
-}
-
-.asm-dose-group {
-  margin-bottom: 0.5rem;
 }
 
 .asm-dose-header {
@@ -787,13 +783,25 @@ input[type="datetime-local"]:focus {
   top: -1px;
 }
 
-.asm-selector-checkbox:not(:has(input:checked)) {
+.asm-selector-checkbox:not(.single-asm):not(:has(input:checked)) {
   opacity: 0.7;
+}
+
+.asm-selector-checkbox.single-asm {
+  cursor: default;
+  pointer-events: none;
+  opacity: 1;
+  padding-left: 0.8rem;
+}
+
+.asm-selector-checkbox.single-asm input[type="checkbox"] {
+  display: none;
 }
 
 .asm-dose-header {
   padding: 0rem;
   padding-right: 0.8rem;
+  margin-bottom: 0.5rem;
 }
 
 .asm-dose-header .quick-add-btn {

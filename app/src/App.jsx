@@ -584,6 +584,19 @@ function App() {
     }));
   };
 
+  // Add this useEffect to handle single ASM visibility
+  useEffect(() => {
+    const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+
+    // If there's only one ASM, ensure it's visible
+    if (activeASMs.length === 1) {
+      const singleASM = activeASMs[0];
+      if (!visibleASMs.includes(singleASM)) {
+        setVisibleASMs([singleASM]);
+      }
+    }
+  }, [formState.medicationHistory]);
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -778,7 +791,7 @@ function App() {
                           <h3 style={{ color: getAsmColor(asmType) }}>
                             {asmType} ({doses.length})
                           </h3>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                             <button
                               type="button"
                               className="quick-add-btn"
@@ -964,6 +977,7 @@ function App() {
           <div className="asm-selector">
             {(() => {
               const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+              const singleASM = activeASMs.length === 1;
 
               // Sort series to ensure Total is first
               const sortedSeries = [...chartData].sort((a, b) => {
@@ -975,7 +989,7 @@ function App() {
               return sortedSeries.map(series => (
                 <label
                   key={`selector-${series.asm}`}
-                  className="asm-selector-checkbox"
+                  className={`asm-selector-checkbox ${singleASM ? 'single-asm' : ''}`}
                   style={{
                     '--checkbox-color': getAsmColor(series.asm),
                     color: getAsmColor(series.asm),
@@ -985,11 +999,13 @@ function App() {
                     borderRadius: '4px'
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={visibleASMs.includes(series.asm)}
-                    onChange={() => toggleASM(series.asm)}
-                  />
+                  {!singleASM && (
+                    <input
+                      type="checkbox"
+                      checked={visibleASMs.includes(series.asm)}
+                      onChange={() => toggleASM(series.asm)}
+                    />
+                  )}
                   {series.asm}
                 </label>
               ));
