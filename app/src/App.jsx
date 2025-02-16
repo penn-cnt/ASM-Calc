@@ -876,7 +876,10 @@ function App() {
                 <XAxis
                   dataKey="time"
                   type="number"
-                  domain={['dataMin', 'dataMax']}
+                  domain={(() => {
+                    const now = Date.now();
+                    return [now - 60 * 60 * 1000, now + 24 * 60 * 60 * 1000]; // 1 hour before to 24 hours after
+                  })()}
                   tickFormatter={(unixTime) => {
                     const date = new Date(unixTime);
                     return date.toLocaleDateString([], {
@@ -931,20 +934,29 @@ function App() {
                     return null;
                   }}
                 />
-                {chartData.map((series) => (
-                  <Line
-                    key={series.name}
-                    type="monotone"
-                    dataKey="concentration"
-                    data={series.data}
-                    name={series.name}
-                    stroke={series.color || CHART_COLORS[0]} // Use series-specific color or fallback
-                    strokeWidth={3}
-                    dot={false}
-                    opacity={series.name === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
-                    hide={series.name !== 'Total' && !visibleASMs.includes(series.name)}
-                  />
-                ))}
+                {chartData.map((series) => {
+                  // Filter data points to show 1 hour before to 24 hours after
+                  const now = Date.now();
+                  const filteredData = series.data.filter(point =>
+                    point.time >= now - 60 * 60 * 1000 &&
+                    point.time <= now + 24 * 60 * 60 * 1000
+                  );
+
+                  return (
+                    <Line
+                      key={series.name}
+                      type="monotone"
+                      dataKey="concentration"
+                      data={filteredData}
+                      name={series.name}
+                      stroke={series.color || CHART_COLORS[0]}
+                      strokeWidth={3}
+                      dot={false}
+                      opacity={series.name === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
+                      hide={series.name !== 'Total' && !visibleASMs.includes(series.name)}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           ) : (

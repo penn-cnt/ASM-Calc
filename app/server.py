@@ -61,20 +61,24 @@ def calculate_concentrations():
         if not all_med_times:
             return jsonify([])
 
-        global_start = min(all_med_times).astimezone(timezone.utc)
-        global_end = max(all_med_times).astimezone(timezone.utc) + timedelta(
-            hours=24 * 5
-        )
+        # Set time window to be 1 hour before now to 24 hours after now
+        global_start = datetime.now(timezone.utc) - timedelta(hours=1)
+        global_end = global_start + timedelta(
+            hours=25
+        )  # 1 hour before + 24 hours after
 
-        # Generate time points every 10 minutes
+        # Generate time points every 10 minutes within the window
         current = global_start.replace(minute=0, second=0, microsecond=0)
         global_time_points = []
         while current <= global_end:
             global_time_points.append(current)
             current += timedelta(minutes=10)
 
-        # Add all medication times and sort
-        global_time_points.extend(all_med_times)
+        # Include medication times that are within our window
+        relevant_med_times = [
+            t for t in all_med_times if global_start <= t <= global_end
+        ]
+        global_time_points.extend(relevant_med_times)
         global_time_points = sorted(list(set(global_time_points)))
 
         # Calculate concentrations for each ASM using the same time points
