@@ -668,16 +668,18 @@ input[type="datetime-local"]:focus {
 }
 
 .chart-title-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  margin-bottom: 1rem;
+  width: 100%;
+  gap: 2rem;
 }
 
-.chart-controls {
+.time-controls {
   display: flex;
-  gap: 1rem;
   align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
 .time-range-select {
@@ -698,12 +700,6 @@ input[type="datetime-local"]:focus {
   outline: none;
   border-color: #4299e1;
   box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
-}
-
-.time-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .time-shift-btn {
