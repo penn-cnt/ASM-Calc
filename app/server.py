@@ -1,128 +1,179 @@
 from flask import Flask, jsonify, request
 from datetime import datetime, timedelta, timezone
-from services.pharmacokinetics import calculate_drug_levels, DrugModel
+from services.pharmacokinetics import (
+    calculate_drug_levels,
+    DrugModel,
+    generate_time_series,
+    calculate_total_concentration,
+)
+import numpy as np
 
 app = Flask(__name__)
 
 
 @app.route("/api/calculate", methods=["POST"])
 def calculate_concentrations():
+    """
+    Endpoint for calculating drug concentrations
+    Expects JSON payload with:
+    - patient_weight: float (kg)
+    - medications: list of {timestamp, dosage, unit, asmType}
+    - asm_parameters: dict of {asmName: {halfLife, vd, bioavailability}}
+    - time_range: int (hours to display)
+    - time_offset: int (hours offset from now)
+    """
     try:
-        data = request.json
-        print("Received data:", data)  # Debug print
+        data = request.get_json()
 
-        if not data or "medicationHistory" not in data:
-            return jsonify({"error": "No medication history provided"}), 400
+        # Validate input structure
+        if not all(
+            k in data for k in ["patient_weight", "medications", "asm_parameters"]
+        ):
+            return jsonify({"error": "Missing required fields"}), 400
 
-        if "asmParameters" not in data:
-            return jsonify({"error": "No ASM parameters provided"}), 400
-
-        # Convert medication history with ASM type
-        med_history = []
-        for med in data["medicationHistory"]:
-            if "asmType" not in med:
-                return jsonify({"error": "Missing asmType in medication entry"}), 400
-
+        # Convert and validate medications
+        dose_events = {}
+        for med in data["medications"]:
             try:
-                event = MedicationEvent(
-                    timestamp=med["timestamp"],
-                    dosage=med["dosage"],
-                    asm_type=med["asmType"],
+                # Convert to datetime object and standardize units to mg
+                timestamp = datetime.fromisoformat(
+                    med["timestamp"].replace("Z", "+00:00")
+                ).replace(
+                    second=0, microsecond=0
+                )  # Round to minute
+                dose_mg = convert_to_mg(float(med["dosage"]), med["unit"])
+
+                # Group doses by ASM type
+                key = (timestamp, med["asmType"])
+                dose_events[key] = dose_events.get(key, 0) + dose_mg
+
+            except (KeyError, ValueError) as e:
+                return jsonify({"error": f"Invalid medication data: {str(e)}"}), 400
+
+        # Find the most recent dose time
+        latest_dose = (
+            max(
+                datetime.fromisoformat(med["timestamp"].replace("Z", "+00:00"))
+                for med in data["medications"]
+            )
+            if data["medications"]
+            else datetime.now(timezone.utc)
+        )
+
+        # Calculate the display window
+        display_start = datetime.now(timezone.utc) - timedelta(
+            hours=data.get("time_offset", 0)
+        )
+        display_end = display_start + timedelta(hours=data.get("time_range", 24))
+
+        # Find the earliest time we need to calculate from
+        earliest_dose = (
+            min(
+                datetime.fromisoformat(med["timestamp"].replace("Z", "+00:00"))
+                for med in data["medications"]
+            )
+            if data["medications"]
+            else display_start
+        )
+
+        # Calculate time points from earliest dose to max(latest_dose + 7 days, display_end)
+        calculation_end = max(latest_dose + timedelta(days=7), display_end)
+
+        # Get regular time points at 10-minute intervals
+        time_points = generate_time_series(
+            start_time=earliest_dose, end_time=calculation_end, resolution=10
+        )
+
+        # Add dose times to ensure we capture concentration changes at exact dose times
+        dose_times = {
+            datetime.fromisoformat(med["timestamp"].replace("Z", "+00:00")).replace(
+                second=0, microsecond=0
+            )
+            for med in data["medications"]
+        }
+
+        # Combine and sort all time points
+        all_time_points = sorted(set(time_points) | dose_times)
+
+        # Calculate concentrations for each ASM type
+        results = []
+        individual_concentrations = {}  # Store concentrations for total calculation
+
+        for asm_name, params in data["asm_parameters"].items():
+            # Filter doses for this ASM
+            asm_doses = {
+                ts: dose for (ts, name), dose in dose_events.items() if name == asm_name
+            }
+
+            if not asm_doses:
+                continue
+
+            # Initialize pharmacokinetic model
+            try:
+                model = DrugModel(
+                    half_life_hours=float(params["halfLife"]),
+                    volume_distribution=float(params["vd"]),
+                    bioavailability=float(params["bioavailability"]),
                 )
-                med_history.append(event)
-            except Exception as e:
-                print(f"Error processing medication entry: {e}")
-                return jsonify({"error": f"Invalid medication entry: {str(e)}"}), 400
-
-        # Get parameters for each ASM type
-        asm_params = {}
-        for asm_name, params in data["asmParameters"].items():
-            try:
-                asm_params[asm_name] = {
-                    "half_life": float(params["halfLife"]),
-                    "vd": float(params["vd"]),
-                    "bioavailability": float(params["bioavailability"]),
-                }
             except (KeyError, ValueError) as e:
                 return (
                     jsonify({"error": f"Invalid parameters for {asm_name}: {str(e)}"}),
                     400,
                 )
 
-        # Calculate concentrations using shared time points
-        all_results = []
-        time_to_concentrations = {}
+            # Calculate concentrations at all time points
+            concentrations = [
+                model.calculate_concentration(asm_doses, t) for t in all_time_points
+            ]
 
-        # Create global time points using all medications across all ASMs
-        all_med_times = [
-            datetime.fromisoformat(m["timestamp"].replace("Z", "+00:00"))
-            for m in data["medicationHistory"]
-        ]
-        if not all_med_times:
-            return jsonify([])
+            # Store individual concentrations for total calculation
+            individual_concentrations[asm_name] = concentrations
 
-        global_start = min(all_med_times).astimezone(timezone.utc)
-        global_end = max(all_med_times).astimezone(timezone.utc) + timedelta(
-            hours=24 * 5
+            # Add to results
+            results.append(
+                {
+                    "asm": asm_name,
+                    "times": [t.isoformat() for t in all_time_points],
+                    "concentrations": concentrations,
+                }
+            )
+
+        # Calculate and add total if there are multiple ASMs
+        if len(individual_concentrations) >= 2:
+            total_concentrations = calculate_total_concentration(
+                individual_concentrations
+            )
+            results.append(
+                {
+                    "asm": "Total",
+                    "times": [t.isoformat() for t in all_time_points],
+                    "concentrations": total_concentrations,
+                }
+            )
+
+        return jsonify(
+            {
+                "start_time": display_start.isoformat(),
+                "results": results,
+                "weight": data["patient_weight"],
+            }
         )
 
-        # Generate time points every 10 minutes
-        current = global_start.replace(minute=0, second=0, microsecond=0)
-        global_time_points = []
-        while current <= global_end:
-            global_time_points.append(current)
-            current += timedelta(minutes=10)
-
-        # Add all medication times and sort
-        global_time_points.extend(all_med_times)
-        global_time_points = sorted(list(set(global_time_points)))
-
-        # Calculate concentrations for each ASM using the same time points
-        for asm_name, params in asm_params.items():
-            # Filter medications for this ASM type
-            asm_meds = [m for m in med_history if m.asm_type == asm_name]
-            if not asm_meds:
-                continue
-
-            try:
-                # Calculate concentrations at global time points
-                times, concentrations = calculate_drug_levels(
-                    asm_meds,
-                    params,
-                    global_time_points,  # Pass the precomputed time points
-                )
-
-                # Store concentrations for each time point
-                for t, c in zip(times, concentrations):
-                    time_str = t.isoformat()
-                    if time_str not in time_to_concentrations:
-                        time_to_concentrations[time_str] = {"Total": 0}
-                    time_to_concentrations[time_str][asm_name] = c
-                    time_to_concentrations[time_str]["Total"] += c
-
-            except Exception as e:
-                print(f"Error calculating concentrations for {asm_name}: {e}")
-                return (
-                    jsonify({"error": f"Calculation failed for {asm_name}: {str(e)}"}),
-                    500,
-                )
-
-        # Convert to final results format
-        for time_str, concentrations in time_to_concentrations.items():
-            entry = {"time": time_str, **concentrations}
-            all_results.append(entry)
-
-        # Sort final results by time
-        all_results.sort(key=lambda x: x["time"])
-
-        return jsonify(all_results)
-
     except Exception as e:
-        print("Server error:", str(e))
-        import traceback
-
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+def convert_to_mg(value, unit):
+    """Convert input dose to milligrams"""
+    match unit.lower():
+        case "ug":
+            return value / 1000
+        case "g":
+            return value * 1000
+        case "mg":
+            return value
+        case _:
+            raise ValueError(f"Invalid unit: {unit}")
 
 
 # Sample drug parameters storage
