@@ -1047,16 +1047,41 @@ function App() {
                   formatter={formatTooltip}
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
-                      const sortedPayload = [...payload].sort((a, b) => {
-                        if (a.name === 'Total') return -1;
-                        if (b.name === 'Total') return 1;
-                        return 0;
-                      });
+                      // Find the exact data point for this timestamp from the first visible series
+                      const timestamp = label;
+                      const visibleSeries = chartData.find(s =>
+                        visibleASMs.includes(s.asm) &&
+                        s.data.some(p => p.time === timestamp)
+                      );
+
+                      if (!visibleSeries) return null;
+
+                      // Get the exact data point
+                      const dataPoint = visibleSeries.data.find(p => p.time === timestamp);
+                      if (!dataPoint) return null;
+
+                      // Get values for all visible ASMs at this exact timestamp
+                      const values = chartData
+                        .filter(s => visibleASMs.includes(s.asm))
+                        .map(s => {
+                          const point = s.data.find(p => p.time === timestamp);
+                          return {
+                            name: s.asm,
+                            value: point ? point[s.asm] : null,
+                            color: getAsmColor(s.asm)
+                          };
+                        })
+                        .filter(entry => entry.value != null)
+                        .sort((a, b) => {
+                          if (a.name === 'Total') return -1;
+                          if (b.name === 'Total') return 1;
+                          return 0;
+                        });
 
                       return (
                         <div className="custom-tooltip">
-                          <p className="tooltip-time">{new Date(label).toLocaleString()}</p>
-                          {sortedPayload.map(entry => (
+                          <p className="tooltip-time">{new Date(timestamp).toLocaleString()}</p>
+                          {values.map(entry => (
                             <p
                               key={`tooltip-${entry.name}`}
                               style={{ color: entry.color }}
@@ -1109,6 +1134,7 @@ function App() {
                         stroke={getAsmColor(series.asm)}
                         strokeWidth={3}
                         dot={false}
+                        activeDot={false}
                         opacity={series.asm === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
                         hide={series.asm !== 'Total' && !visibleASMs.includes(series.asm)}
                         connectNulls={true}
