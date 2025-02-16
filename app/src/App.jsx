@@ -736,7 +736,7 @@ function App() {
                             document.getElementById('add-dose-dropdown').style.display = 'none';
                           }}
                         >
-                          {asmType}
+                          + {asmType}
                         </button>
                       );
                     })}

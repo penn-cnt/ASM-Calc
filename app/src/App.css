@@ -426,17 +426,23 @@ input[type="datetime-local"]:focus {
 }
 
 .dropdown-content button {
-  display: block;
+  display: flex;
   width: 100%;
-  padding: 0.8rem 1.2rem;
+  padding: 0.4rem 0.8rem;
   border: none;
   text-align: left;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: filter 0.2s;
+  transition: all 0.2s;
   font-weight: 500;
   border-radius: 4px;
   margin-bottom: 0.25rem;
+  white-space: nowrap;
+  min-width: 160px;
+  align-items: center;
+  gap: 0.5rem;
+  border-left-width: 4px;
+  border-left-style: solid;
 }
 
 .dropdown-content button:last-child {
