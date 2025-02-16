@@ -2,14 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './App.css'
 
-// Add this constant for storing ASM colors
 const ASM_COLORS_KEY = 'asmColors';
-
-// Add a new constant for storing custom ASMs
 const CUSTOM_ASMS_KEY = 'customAsms';
-
-// Add a new constant for storing visible ASMs
 const VISIBLE_ASMS_KEY = 'visibleAsms';
+
+const TIME_RANGES = [
+  { label: '4 hours', value: 4 },
+  { label: '8 hours', value: 8 },
+  { label: '12 hours', value: 12 },
+  { label: '1 day', value: 24 },
+  { label: '2 days', value: 48 },
+  { label: '3 days', value: 72 },
+];
 
 const loadFromLocalStorage = () => {
   try {
@@ -187,6 +191,9 @@ function App() {
   const [showAddAsmForm, setShowAddAsmForm] = useState(false);
   const [newAsmName, setNewAsmName] = useState('');
   const newAsmInputRef = useRef(null);
+
+  const [timeRange, setTimeRange] = useState(24); // Default to 24 hours
+  const [timeOffset, setTimeOffset] = useState(0); // Offset in hours
 
   useEffect(() => {
     try {
@@ -797,16 +804,65 @@ function App() {
 
         <div className="chart-container">
           <div className="chart-header">
-            <h2>ASM Concentration Over Time</h2>
-            {chartData.length > 0 && (
-              <button
-                type="button"
-                onClick={downloadCSV}
-                className="download-csv-btn"
-              >
-                Download CSV
-              </button>
-            )}
+            <div className="chart-title-row">
+              <h2>ASM Concentration Over Time</h2>
+              <div className="chart-controls">
+                <div className="time-controls">
+                  <button
+                    type="button"
+                    onClick={() => setTimeOffset(curr => curr - 8)}
+                    className="time-shift-btn"
+                    title="Back 8 hours"
+                  >
+                    ◀◀
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeOffset(curr => curr - 4)}
+                    className="time-shift-btn"
+                    title="Back 4 hours"
+                  >
+                    ◀
+                  </button>
+                  <select
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(Number(e.target.value))}
+                    className="time-range-select"
+                  >
+                    {TIME_RANGES.map(range => (
+                      <option key={range.value} value={range.value}>
+                        {range.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setTimeOffset(curr => curr + 4)}
+                    className="time-shift-btn"
+                    title="Forward 4 hours"
+                  >
+                    ▶
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeOffset(curr => curr + 8)}
+                    className="time-shift-btn"
+                    title="Forward 8 hours"
+                  >
+                    ▶▶
+                  </button>
+                </div>
+                {chartData.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={downloadCSV}
+                    className="download-csv-btn"
+                  >
+                    Download CSV
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           <div className="asm-selector">
             {(() => {
@@ -877,8 +933,11 @@ function App() {
                   dataKey="time"
                   type="number"
                   domain={(() => {
-                    const now = Date.now();
-                    return [now - 60 * 60 * 1000, now + 24 * 60 * 60 * 1000]; // 1 hour before to 24 hours after
+                    const now = Date.now() + (timeOffset * 60 * 60 * 1000);
+                    return [
+                      now - 60 * 60 * 1000,
+                      now + timeRange * 60 * 60 * 1000
+                    ];
                   })()}
                   tickFormatter={(unixTime) => {
                     const date = new Date(unixTime);
@@ -893,6 +952,20 @@ function App() {
                   angle={-45}
                   textAnchor="end"
                   height={100}
+                  interval="preserveStartEnd"
+                  minTickGap={timeRange > 24 ? 100 : 50}
+                  ticks={(() => {
+                    const now = Date.now();
+                    const start = now - 60 * 60 * 1000;
+                    const end = now + timeRange * 60 * 60 * 1000;
+                    const points = [];
+                    // Generate appropriate number of ticks based on time range
+                    const numTicks = timeRange <= 24 ? 8 : timeRange <= 48 ? 12 : 16;
+                    for (let i = 0; i <= numTicks; i++) {
+                      points.push(start + (end - start) * (i / numTicks));
+                    }
+                    return points;
+                  })()}
                 />
                 <YAxis
                   label={{
@@ -906,7 +979,15 @@ function App() {
                   }}
                 />
                 <Tooltip
-                  labelFormatter={(value) => new Date(value).toLocaleString()}
+                  labelFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleString([], {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                  }}
                   formatter={(value) => value.toFixed(2)}
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
@@ -935,11 +1016,10 @@ function App() {
                   }}
                 />
                 {chartData.map((series) => {
-                  // Filter data points to show 1 hour before to 24 hours after
-                  const now = Date.now();
+                  const now = Date.now() + (timeOffset * 60 * 60 * 1000);
                   const filteredData = series.data.filter(point =>
                     point.time >= now - 60 * 60 * 1000 &&
-                    point.time <= now + 24 * 60 * 60 * 1000
+                    point.time <= now + timeRange * 60 * 60 * 1000
                   );
 
                   return (

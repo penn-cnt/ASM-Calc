@@ -666,3 +666,68 @@ input[type="datetime-local"]:focus {
 .asm-delete-btn:hover {
   background: #dc2626;
 }
+
+.chart-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chart-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.time-range-select {
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  background-color: white;
+  font-size: 0.875rem;
+  color: #1a202c;
+  cursor: pointer;
+}
+
+.time-range-select:hover {
+  border-color: #cbd5e0;
+}
+
+.time-range-select:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-shift-btn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.75rem;
+  color: #1a202c;
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.2s;
+}
+
+.time-shift-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e0;
+}
+
+.time-shift-btn:active {
+  background: #e2e8f0;
+}
+
+.time-shift-btn:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
