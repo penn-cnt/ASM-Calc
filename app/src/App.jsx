@@ -860,6 +860,16 @@ function App() {
               <div className="time-controls">
                 <button
                   type="button"
+                  onClick={() => {
+                    setTimeOffset(0); // Only reset offset to current time
+                  }}
+                  className="time-shift-btn reset-btn"
+                  title="Reset to current time"
+                >
+                  ↺
+                </button>
+                <button
+                  type="button"
                   onClick={() => setTimeOffset(curr => curr - 8)}
                   className="time-shift-btn"
                   title="Back 8 hours"
@@ -900,6 +910,14 @@ function App() {
                   title="Forward 8 hours"
                 >
                   ▶▶
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeOffset(0)}
+                  className="time-shift-btn refresh-btn"
+                  title="Update to current time"
+                >
+                  ↻
                 </button>
               </div>
               {chartData.length > 0 && (
