@@ -3,7 +3,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import './App.css'
 
 const ASM_COLORS_KEY = 'asmColors';
-const CUSTOM_ASMS_KEY = 'customAsms';
 const VISIBLE_ASMS_KEY = 'visibleAsms';
 
 const TIME_RANGES = [
@@ -157,6 +156,12 @@ const DEFAULT_COLOR_POSITIONS = {
   'Carbamazepine': 3   // green
 };
 
+// Add this CSS class to handle invalid inputs
+const invalidInputStyle = {
+  border: '2px solid var(--danger-red)',
+  backgroundColor: 'rgba(239, 68, 68, 0.05)'
+};
+
 function App() {
   const [results, setResults] = useState([]);
   const [chartData, setChartData] = useState([]);
@@ -186,6 +191,15 @@ function App() {
 
   const [expandedAsmType, setExpandedAsmType] = useState(null);
 
+  // Add state for error handling
+  const [parameterErrors, setParameterErrors] = useState({});
+
+  // Add this state for dose errors
+  const [doseErrors, setDoseErrors] = useState({});
+
+  // Add state for weight error
+  const [weightError, setWeightError] = useState(false);
+
   useEffect(() => {
     try {
       localStorage.setItem('formState', JSON.stringify(formState));
@@ -198,12 +212,40 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Validate parameters before making API call
+        const invalidParams = {};
+        Object.entries(formState.asmParameters).forEach(([asmName, params]) => {
+          if (!params.halfLife || params.halfLife <= 0) {
+            invalidParams[`${asmName}-half-life`] = true;
+          }
+          if (!params.vd || params.vd <= 0) {
+            invalidParams[`${asmName}-vd`] = true;
+          }
+          if (!params.bioavailability || params.bioavailability <= 0 || params.bioavailability > 1) {
+            invalidParams[`${asmName}-bioavailability`] = true;
+          }
+        });
+
+        // Check for invalid weight
+        const hasInvalidWeight = !Number(formState.weight) || Number(formState.weight) <= 0;
+
+        if (Object.keys(invalidParams).length > 0 || hasInvalidWeight) {
+          setParameterErrors(invalidParams);
+          return; // Don't make API call if parameters or weight are invalid
+        }
+
+        // Create a copy of medication history with empty values replaced with "0"
+        const sanitizedMedications = formState.medicationHistory.map(med => ({
+          ...med,
+          dosage: med.dosage || "0"
+        }));
+
         const response = await fetch('/api/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             patient_weight: formState.weight,
-            medications: formState.medicationHistory,
+            medications: sanitizedMedications,  // Use sanitized version
             asm_parameters: formState.asmParameters,
             time_range: timeRange,
             time_offset: timeOffset
@@ -212,6 +254,9 @@ function App() {
 
         const data = await response.json();
         if (data.error) throw new Error(data.error);
+
+        // Clear any previous errors
+        setParameterErrors({});
 
         // Transform data for Recharts
         const series = data.results.map(asm => ({
@@ -597,6 +642,18 @@ function App() {
     }
   }, [formState.medicationHistory]);
 
+  // Add this helper function
+  const openDatePicker = (e) => {
+    // Find and click the calendar picker indicator
+    const indicator = e.target.querySelector('::-webkit-calendar-picker-indicator');
+    if (indicator) {
+      indicator.click();
+    } else {
+      // Fallback for Firefox/other browsers
+      e.target.showPicker?.();
+    }
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -612,12 +669,35 @@ function App() {
                 name="patient-weight"
                 type="number"
                 value={formState.weight}
-                onChange={e => setFormState({
-                  ...formState,
-                  weight: Number(e.target.value) // Convert to number
-                })}
+                onChange={e => {
+                  const value = Number(e.target.value);
+                  setFormState({
+                    ...formState,
+                    weight: e.target.value // Allow empty value during typing
+                  });
+
+                  // Update error state
+                  if (!value || value <= 0) {
+                    e.target.style.border = invalidInputStyle.border;
+                    e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                    setWeightError(true);
+                  } else {
+                    e.target.style.border = '';
+                    e.target.style.backgroundColor = '';
+                    setWeightError(false);
+                  }
+                }}
+                onBlur={e => {
+                  const value = Number(e.target.value);
+                  if (!value || value <= 0) {
+                    setTimeout(() => {
+                      alert('Weight must be greater than 0.');
+                    }, 0);
+                  }
+                }}
                 step="0.1"
                 required
+                style={weightError ? invalidInputStyle : {}}
               />
             </label>
 
@@ -831,6 +911,7 @@ function App() {
                                   const globalIndex = formState.medicationHistory.indexOf(med);
                                   handleDoseTimeChange(e, globalIndex);
                                 }}
+                                onClick={(e) => openDatePicker(e)}
                                 required
                               />
                               <div className="dose-value-group">
@@ -838,18 +919,45 @@ function App() {
                                   type="number"
                                   value={med.dosage}
                                   onChange={e => {
+                                    const value = Number(e.target.value);
                                     const newHistory = [...formState.medicationHistory];
                                     const globalIndex = formState.medicationHistory.indexOf(med);
+                                    // Allow empty value during typing
                                     newHistory[globalIndex].dosage = e.target.value;
                                     setFormState(prev => ({
                                       ...prev,
                                       medicationHistory: newHistory
                                     }));
+
+                                    // Update error state
+                                    if (!value || value <= 0) {
+                                      e.target.style.border = invalidInputStyle.border;
+                                      e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                                      setDoseErrors(prev => ({
+                                        ...prev,
+                                        [globalIndex]: true
+                                      }));
+                                    } else {
+                                      e.target.style.border = '';
+                                      e.target.style.backgroundColor = '';
+                                      setDoseErrors(prev => ({
+                                        ...prev,
+                                        [globalIndex]: false
+                                      }));
+                                    }
                                   }}
-                                  placeholder="Dosage"
+                                  onBlur={e => {
+                                    const value = Number(e.target.value);
+                                    if (!value || value <= 0) {
+                                      setTimeout(() => {
+                                        alert('Dose must be greater than 0.');
+                                      }, 0);
+                                    }
+                                  }}
                                   min="0"
                                   step="any"
                                   required
+                                  style={doseErrors[formState.medicationHistory.indexOf(med)] ? invalidInputStyle : {}}
                                 />
                                 <select
                                   value={med.unit || 'mg'}
@@ -1190,16 +1298,47 @@ function App() {
                       name={`${asmName}-half-life`}
                       type="number"
                       value={params.halfLife}
-                      onChange={e => setFormState(prev => ({
-                        ...prev,
-                        asmParameters: {
-                          ...prev.asmParameters,
-                          [asmName]: {
-                            ...prev.asmParameters[asmName],
-                            halfLife: e.target.value
+                      onChange={e => {
+                        const value = parseFloat(e.target.value);
+                        // First update the state
+                        setFormState(prev => ({
+                          ...prev,
+                          asmParameters: {
+                            ...prev.asmParameters,
+                            [asmName]: {
+                              ...prev.asmParameters[asmName],
+                              halfLife: e.target.value
+                            }
                           }
+                        }));
+
+                        // Update styling immediately, but no warning
+                        if (!value || value <= 0) {
+                          e.target.style.border = invalidInputStyle.border;
+                          e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-half-life`]: true
+                          }));
+                        } else {
+                          e.target.style.border = '';
+                          e.target.style.backgroundColor = '';
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-half-life`]: false
+                          }));
                         }
-                      }))}
+                      }}
+                      onBlur={e => {
+                        const value = parseFloat(e.target.value);
+                        if (!value || value <= 0) {
+                          setTimeout(() => {
+                            alert('You must set a value greater than 0.');
+                          }, 0);
+                        }
+                      }}
+                      style={parameterErrors[`${asmName}-half-life`] ? invalidInputStyle : {}}
+                      required
                     />
                   </label>
                   <label htmlFor={`${asmName}-vd`}>
@@ -1210,16 +1349,37 @@ function App() {
                       type="number"
                       step="0.1"
                       value={params.vd}
-                      onChange={e => setFormState(prev => ({
-                        ...prev,
-                        asmParameters: {
-                          ...prev.asmParameters,
-                          [asmName]: {
-                            ...prev.asmParameters[asmName],
-                            vd: e.target.value
+                      onChange={e => {
+                        const value = parseFloat(e.target.value);
+                        setFormState(prev => ({
+                          ...prev,
+                          asmParameters: {
+                            ...prev.asmParameters,
+                            [asmName]: {
+                              ...prev.asmParameters[asmName],
+                              vd: e.target.value
+                            }
                           }
+                        }));
+                        if (!value || value <= 0) {
+                          e.target.style.border = invalidInputStyle.border;
+                          e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                          alert('You must set a value greater than 0.');
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-vd`]: true
+                          }));
+                        } else {
+                          e.target.style.border = '';
+                          e.target.style.backgroundColor = '';
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-vd`]: false
+                          }));
                         }
-                      }))}
+                      }}
+                      style={parameterErrors[`${asmName}-vd`] ? invalidInputStyle : {}}
+                      required
                     />
                   </label>
                   <label htmlFor={`${asmName}-bioavailability`}>
@@ -1230,16 +1390,37 @@ function App() {
                       type="number"
                       step="1"
                       value={params.bioavailability * 100}
-                      onChange={e => setFormState(prev => ({
-                        ...prev,
-                        asmParameters: {
-                          ...prev.asmParameters,
-                          [asmName]: {
-                            ...prev.asmParameters[asmName],
-                            bioavailability: e.target.value / 100
+                      onChange={e => {
+                        const value = parseFloat(e.target.value);
+                        setFormState(prev => ({
+                          ...prev,
+                          asmParameters: {
+                            ...prev.asmParameters,
+                            [asmName]: {
+                              ...prev.asmParameters[asmName],
+                              bioavailability: e.target.value / 100
+                            }
                           }
+                        }));
+                        if (!value || value <= 0 || value > 100) {
+                          e.target.style.border = invalidInputStyle.border;
+                          e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                          alert('You must set a value greater than 0.');
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-bioavailability`]: true
+                          }));
+                        } else {
+                          e.target.style.border = '';
+                          e.target.style.backgroundColor = '';
+                          setParameterErrors(prev => ({
+                            ...prev,
+                            [`${asmName}-bioavailability`]: false
+                          }));
                         }
-                      }))}
+                      }}
+                      style={parameterErrors[`${asmName}-bioavailability`] ? invalidInputStyle : {}}
+                      required
                     />
                   </label>
                 </div>

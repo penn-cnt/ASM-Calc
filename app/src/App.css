@@ -187,7 +187,7 @@ input[type="datetime-local"]:focus {
 }
 
 .dose-entry:hover {
-  filter: brightness(0.98);
+  filter: none;
 }
 
 .dose-entry-inputs {
@@ -231,6 +231,17 @@ input[type="datetime-local"]:focus {
 
 .dose-entry button:hover {
   background: var(--danger-red-dark);
+}
+
+.dose-entry .dose-value-group input,
+.dose-entry .dose-value-group select {
+  transition: border-color 0.2s;
+}
+
+.dose-entry .dose-value-group input:hover,
+.dose-entry .dose-value-group select:hover {
+  border-color: var(--border-light);
+  background-color: var(--bg-white);
 }
 
 .chart-container {
@@ -831,4 +842,16 @@ input[type="datetime-local"]:focus {
   font-weight: 500;
   min-width: 80px;
   text-align: center;
+}
+
+/* Additional date picker styling overrides */
+::-webkit-datetime-edit-month-field:focus,
+::-webkit-datetime-edit-day-field:focus,
+::-webkit-datetime-edit-year-field:focus,
+::-webkit-datetime-edit-hour-field:focus,
+::-webkit-datetime-edit-minute-field:focus,
+::-webkit-datetime-edit-ampm-field:focus {
+  background-color: transparent;
+  color: var(--text-primary);
+  outline: none;
 }
