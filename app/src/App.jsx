@@ -1351,6 +1351,7 @@ function App() {
                       value={params.vd}
                       onChange={e => {
                         const value = parseFloat(e.target.value);
+                        // First update the state
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
@@ -1361,10 +1362,11 @@ function App() {
                             }
                           }
                         }));
+
+                        // Update styling immediately, but no warning
                         if (!value || value <= 0) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                          alert('You must set a value greater than 0.');
                           setParameterErrors(prev => ({
                             ...prev,
                             [`${asmName}-vd`]: true
@@ -1378,6 +1380,14 @@ function App() {
                           }));
                         }
                       }}
+                      onBlur={e => {
+                        const value = parseFloat(e.target.value);
+                        if (!value || value <= 0) {
+                          setTimeout(() => {
+                            alert('You must set a value greater than 0.');
+                          }, 0);
+                        }
+                      }}
                       style={parameterErrors[`${asmName}-vd`] ? invalidInputStyle : {}}
                       required
                     />
@@ -1389,23 +1399,27 @@ function App() {
                       name={`${asmName}-bioavailability`}
                       type="number"
                       step="1"
-                      value={params.bioavailability * 100}
+                      min="0"
+                      max="100"
+                      value={Math.round(params.bioavailability * 100)}
                       onChange={e => {
-                        const value = parseFloat(e.target.value);
+                        const value = parseInt(e.target.value, 10);
+                        // First update the state, keeping as percentage
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
                             ...prev.asmParameters,
                             [asmName]: {
                               ...prev.asmParameters[asmName],
-                              bioavailability: e.target.value / 100
+                              bioavailability: value / 100 // Convert to proportion only when storing
                             }
                           }
                         }));
+
+                        // Update styling immediately, but no warning
                         if (!value || value <= 0 || value > 100) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                          alert('You must set a value greater than 0.');
                           setParameterErrors(prev => ({
                             ...prev,
                             [`${asmName}-bioavailability`]: true
@@ -1417,6 +1431,14 @@ function App() {
                             ...prev,
                             [`${asmName}-bioavailability`]: false
                           }));
+                        }
+                      }}
+                      onBlur={e => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!value || value <= 0 || value > 100) {
+                          setTimeout(() => {
+                            alert('You must set a value between 0 and 100.');
+                          }, 0);
                         }
                       }}
                       style={parameterErrors[`${asmName}-bioavailability`] ? invalidInputStyle : {}}
