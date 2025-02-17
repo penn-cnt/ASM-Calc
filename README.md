@@ -9,7 +9,7 @@ A web application for calculating and visualizing anti-seizure medication (ASM) 
 - Customizable pharmacokinetic parameters
 - Support for multiple dosing regimens
 
-![ASM-Calc Screenshot](https://github.com/user-attachments/assets/c94cd91d-b592-4206-acc8-3eeb94bc11d3)
+![ASM-Calc Screenshot](https://github.com/user-attachments/assets/a650a50e-8a44-4bcd-9545-8bd9a19a55f5)
 
 ## Prerequisites
 
