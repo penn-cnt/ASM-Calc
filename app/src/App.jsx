@@ -149,21 +149,13 @@ const ASM_COLORS = {
 
 const TOTAL_COLOR = CHART_COLORS[0];
 
-// Add this constant to track default color positions
-const DEFAULT_COLOR_POSITIONS = {
-  'Levetiracetam': 1,  // blue
-  'Valproate': 2,      // darker blue
-  'Carbamazepine': 3   // green
-};
-
-// Add this CSS class to handle invalid inputs
+// Handle invalid inputs
 const invalidInputStyle = {
   border: '2px solid var(--danger-red)',
   backgroundColor: 'rgba(239, 68, 68, 0.05)'
 };
 
 function App() {
-  const [results, setResults] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [visibleASMs, setVisibleASMs] = useState(() => {
     const savedState = loadFromLocalStorage();
@@ -188,8 +180,6 @@ function App() {
 
   const [timeRange, setTimeRange] = useState(24);
   const [timeOffset, setTimeOffset] = useState(0);
-
-  const [expandedAsmType, setExpandedAsmType] = useState(null);
 
   // Add state for error handling
   const [parameterErrors, setParameterErrors] = useState({});
@@ -306,45 +296,6 @@ function App() {
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
-
-  const convertToMg = (value, unit) => {
-    switch (unit) {
-      case 'ug': return value / 1000;
-      case 'g': return value * 1000;
-      default: return value;
-    }
-  };
-
-  const addDose = () => {
-    const now = new Date();
-    // Round to nearest minute
-    now.setSeconds(0, 0);
-    const localISOTime = now.toISOString();
-
-    // Find first non-collapsed ASM type
-    const defaultAsmType = Object.entries(formState.asmParameters)
-      .find(([_, params]) => !params.isCollapsed)?.[0]
-      || Object.keys(formState.asmParameters)[0];
-
-    // Ensure the ASM section is expanded
-    setFormState(prev => ({
-      ...prev,
-      asmParameters: {
-        ...prev.asmParameters,
-        [defaultAsmType]: {
-          ...prev.asmParameters[defaultAsmType],
-          isCollapsed: false  // Ensure section is expanded
-        }
-      },
-      medicationHistory: [...prev.medicationHistory, {
-        timestamp: localISOTime,
-        dosage: "500",
-        unit: "mg",
-        asmType: defaultAsmType,
-        taken: true
-      }]
-    }));
-  };
 
   const deleteDose = (index) => {
     setFormState(prev => ({
