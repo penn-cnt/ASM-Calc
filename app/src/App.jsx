@@ -405,11 +405,12 @@ function App() {
       })
     ].join('\n');
 
-    // Create and trigger download
+    // Create and trigger download with full timestamp
+    const timestamp = new Date().toLocaleString('sv').replace(' ', '_').replace(/:/g, '-');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `asm_concentrations_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `asm_concentrations_${timestamp}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -671,11 +672,12 @@ function App() {
       ].join(','))
     ].join('\n');
 
-    // Create and trigger download
+    // Create and trigger download with full timestamp
+    const timestamp = new Date().toLocaleString('sv').replace(' ', '_').replace(/:/g, '-');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `medication_history_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `medication_history_${timestamp}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
