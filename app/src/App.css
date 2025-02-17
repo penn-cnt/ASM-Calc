@@ -2,6 +2,8 @@
   margin: 0;
   padding: 0;
   width: 100%;
+  min-height: 100vh;
+  background: #c7dff8;
 }
 
 :root {
@@ -58,20 +60,23 @@
 .app-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 h1 {
   color: var(--text-primary);
   margin-bottom: var(--spacing-xl);
-  font-size: var(--text-2xl);
   font-weight: 600;
+  font-size: 2.2rem;
+  margin-top: 1rem;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .calculator-grid {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
   margin-top: 1rem;
 }
 
@@ -262,8 +267,10 @@ input[type="datetime-local"]:focus {
 }
 
 .chart-container h2 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.2rem;
+  margin: 0 0 1.2rem 0;
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .no-data {
@@ -340,7 +347,9 @@ input[type="datetime-local"]:focus {
 
 .asm-parameters-container h2 {
   margin: 0 0 1.2rem 0;
-  font-size: 1.2rem;
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .asm-parameters-grid {
@@ -364,8 +373,8 @@ input[type="datetime-local"]:focus {
 
 .asm-params-group h3 {
   margin: 0 0 1rem 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: 500;
 }
 
 .asm-params-group label {
@@ -551,8 +560,9 @@ input[type="datetime-local"]:focus {
 
 .asm-toggle-group h3 {
   margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  color: #4a5568;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .add-asm-btn {
