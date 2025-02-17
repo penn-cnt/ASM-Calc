@@ -175,6 +175,16 @@ input[type="datetime-local"]:focus {
 .add-dose-btn {
   margin-bottom: 0;
   min-width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.add-dose-btn::before {
+  content: "+";
+  font-size: 1.5em;
+  line-height: 0.8;
+  margin-top: -4px;
 }
 
 .dose-entry {
@@ -307,7 +317,8 @@ input[type="datetime-local"]:focus {
   display: flex;
   gap: 0.8rem;
   margin-bottom: 1rem;
-  justify-content: flex-start;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .recharts-cartesian-axis-label {
@@ -557,6 +568,16 @@ input[type="datetime-local"]:focus {
   margin-top: 0.5rem;
   width: fit-content;
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.add-asm-btn::before {
+  content: "+";
+  font-size: 1.5em;
+  line-height: 0.8;
+  margin-top: -4px;
 }
 
 .add-asm-btn:hover {
@@ -854,4 +875,17 @@ input[type="datetime-local"]:focus {
   background-color: transparent;
   color: var(--text-primary);
   outline: none;
+}
+
+.download-csv-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.download-csv-btn::before {
+  content: "↓";
+  font-size: 1.1em;
+  font-weight: bold;
+  line-height: 0.8;
 }

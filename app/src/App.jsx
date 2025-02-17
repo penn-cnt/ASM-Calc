@@ -654,6 +654,33 @@ function App() {
     }
   };
 
+  const downloadMedicationHistory = () => {
+    if (formState.medicationHistory.length === 0) return;
+
+    // Create headers
+    const headers = ['Timestamp', 'ASM Type', 'Dosage', 'Unit'];
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(','),
+      ...formState.medicationHistory.map(med => [
+        new Date(med.timestamp).toISOString(),
+        med.asmType,
+        med.dosage,
+        med.unit
+      ].join(','))
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `medication_history_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -769,7 +796,7 @@ function App() {
                     setTimeout(() => newAsmInputRef.current?.focus(), 0);
                   }}
                 >
-                  + Add ASM
+                  Add ASM
                 </button>
               )}
             </div>
@@ -779,11 +806,15 @@ function App() {
             <h2>Medication History</h2>
             <div className="button-row">
               <div className="add-dose-dropdown">
-                <button type="button" className="add-dose-btn" onClick={() => {
-                  const dropdownEl = document.getElementById('add-dose-dropdown');
-                  dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
-                }}>
-                  + Add New Dose
+                <button
+                  type="button"
+                  className="add-dose-btn"
+                  onClick={() => {
+                    const dropdownEl = document.getElementById('add-dose-dropdown');
+                    dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
+                  }}
+                >
+                  Add New Dose
                 </button>
                 <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
                   {Object.keys(formState.asmParameters)
@@ -835,6 +866,15 @@ function App() {
                     })}
                 </div>
               </div>
+              {formState.medicationHistory.length > 0 && (
+                <button
+                  type="button"
+                  className="download-csv-btn"
+                  onClick={downloadMedicationHistory}
+                >
+                  Download CSV
+                </button>
+              )}
             </div>
             {Object.keys(formState.asmParameters).length > 0 ? (
               formState.medicationHistory.length > 0 ? (
