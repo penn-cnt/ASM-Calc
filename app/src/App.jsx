@@ -986,8 +986,17 @@ function App() {
                               borderRadius: '4px',
                               padding: '8px'
                             }}
+                            data-index={index + 1}
                           >
                             <div className="dose-entry-inputs">
+                              <div
+                                className="dose-entry-number"
+                                style={{
+                                  color: getAsmColor(asmType)
+                                }}
+                              >
+                                {index + 1}
+                              </div>
                               <input
                                 type="datetime-local"
                                 value={formatLocalDateTime(med.timestamp)}

@@ -193,22 +193,37 @@ input[type="datetime-local"]:focus {
 }
 
 .dose-entry {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.8rem;
+  display: block;
   margin-bottom: 0.8rem;
   align-items: center;
   transition: background-color 0.2s;
+  margin-left: 1.5rem;
+  padding: 8px;
+  border-radius: 4px;
+  position: relative;
 }
 
 .dose-entry:hover {
   filter: none;
 }
 
+.dose-entry-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
 .dose-entry-inputs {
   display: grid;
-  grid-template-columns: 1fr 8rem auto;
-  gap: 0.8rem;
+  grid-template-columns: auto 20rem 8rem 1fr;
+  padding-right: 0.5rem;
+  gap: 0.4rem;
   align-items: center;
 }
 
@@ -234,7 +249,7 @@ input[type="datetime-local"]:focus {
   height: 1.8rem;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -242,6 +257,14 @@ input[type="datetime-local"]:focus {
   line-height: 1;
   font-family: system-ui, -apple-system, sans-serif;
   align-self: center;
+  opacity: 0;
+  visibility: hidden;
+  justify-self: end;
+}
+
+.dose-entry:hover button {
+  opacity: 1;
+  visibility: visible;
 }
 
 .dose-entry button:hover {
@@ -394,13 +417,14 @@ input[type="datetime-local"]:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.8rem;
-  border-radius: 6px;
-  margin-bottom: 0.8rem;
+  padding: 0rem;
+  padding-right: 0.8rem;
+  margin-bottom: 0.5rem;
   cursor: pointer;
   transition: background-color 0.2s;
   position: relative;
   z-index: 1;
+  border-radius: 4px;
 }
 
 .asm-dose-header:hover {
@@ -840,12 +864,6 @@ input[type="datetime-local"]:focus {
   display: none;
 }
 
-.asm-dose-header {
-  padding: 0rem;
-  padding-right: 0.8rem;
-  margin-bottom: 0.5rem;
-}
-
 .asm-dose-header .quick-add-btn {
   padding: 0.3rem 0.8rem;
   border-radius: 4px;
@@ -1035,4 +1053,8 @@ input[type="datetime-local"]:focus {
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 999;
+}
+
+.asm-dose-group {
+  margin-bottom: 1rem;
 }
