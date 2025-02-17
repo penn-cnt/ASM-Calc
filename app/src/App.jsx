@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './App.css'
+import { DEFAULT_ASM_PARAMETERS, DEFAULT_ASM_TEMPLATE } from './config/asm-defaults'
 
 const ASM_COLORS_KEY = 'asmColors';
 const VISIBLE_ASMS_KEY = 'visibleAsms';
@@ -21,7 +22,10 @@ const loadFromLocalStorage = () => {
       // First time load - use default ASMs
       const defaultState = {
         weight: 70,
-        asmParameters: DEFAULT_ASM_PARAMETERS,
+        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+          ...acc,
+          [name]: { ...params, isCollapsed: false }
+        }), {}),
         medicationHistory: []
       };
       // Also set default visibleASMs
@@ -53,7 +57,10 @@ const loadFromLocalStorage = () => {
     console.error('Error loading from localStorage:', error);
     const defaultState = {
       weight: 70,
-      asmParameters: DEFAULT_ASM_PARAMETERS,
+      asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+        ...acc,
+        [name]: { ...params, isCollapsed: false }
+      }), {}),
       medicationHistory: [],
       visibleASMs: Object.keys(DEFAULT_ASM_PARAMETERS)
     };
@@ -70,43 +77,6 @@ const formatLocalDateTime = (isoString) => {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
-// Update DEFAULT_ASM_PARAMETERS to remove enabled property
-const DEFAULT_ASM_PARAMETERS = {
-  'Levetiracetam': {
-    halfLife: 6,
-    vd: 0.7,
-    bioavailability: 1.0,
-    isCollapsed: false,
-    defaultDosage: 500,
-    defaultUnit: 'mg'
-  },
-  'Valproate': {
-    halfLife: 14,
-    vd: 0.2,
-    bioavailability: 0.9,
-    isCollapsed: false,
-    defaultDosage: 200,
-    defaultUnit: 'mg'
-  },
-  'Carbamazepine': {
-    halfLife: 12,
-    vd: 1.4,
-    bioavailability: 0.8,
-    isCollapsed: false,
-    defaultDosage: 200,
-    defaultUnit: 'mg'
-  }
-};
-
-const DEFAULT_ASM_TEMPLATE = {
-  halfLife: 12,
-  vd: 0.7,
-  bioavailability: 1.0,
-  isCollapsed: false,
-  defaultDosage: 200,
-  defaultUnit: 'mg'
 };
 
 // Update CHART_COLORS to include more colors for custom ASMs
@@ -167,7 +137,10 @@ function App() {
       localStorage.removeItem('formState');
       return {
         weight: 70,
-        asmParameters: DEFAULT_ASM_PARAMETERS,
+        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+          ...acc,
+          [name]: { ...params, isCollapsed: false }
+        }), {}),
         medicationHistory: []
       };
     }
@@ -419,7 +392,8 @@ function App() {
       asmParameters: {
         ...prev.asmParameters,
         [newAsmName]: {
-          ...DEFAULT_ASM_TEMPLATE
+          ...DEFAULT_ASM_TEMPLATE,
+          isCollapsed: false
         }
       }
     }));
