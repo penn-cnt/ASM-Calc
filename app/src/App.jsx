@@ -200,6 +200,8 @@ function App() {
   // Add state for weight error
   const [weightError, setWeightError] = useState(false);
 
+  const [editingDefaults, setEditingDefaults] = useState(null);
+
   useEffect(() => {
     try {
       localStorage.setItem('formState', JSON.stringify(formState));
@@ -683,6 +685,84 @@ function App() {
     document.body.removeChild(link);
   };
 
+  const EditDefaultsPopup = ({ asm, onSave, onCancel }) => {
+    const [form, setForm] = useState({
+      dosage: formState.asmParameters[asm]?.defaultDosage || "",
+      unit: formState.asmParameters[asm]?.defaultUnit || "mg"
+    });
+    const [doseError, setDoseError] = useState(false);
+
+    const handleSave = () => {
+      const value = Number(form.dosage);
+      if (!value || value <= 0) {
+        alert('Dose must be greater than 0.');
+        return;
+      }
+      onSave(form);
+    };
+
+    return (
+      <>
+        <div className="popup-overlay" onClick={onCancel} />
+        <div className="edit-defaults-popup">
+          <h3>Edit Default Dose for {asm}</h3>
+          <div className="form-row">
+            <input
+              type="number"
+              value={form.dosage}
+              onChange={e => {
+                const value = Number(e.target.value);
+                setForm(prev => ({ ...prev, dosage: e.target.value }));
+
+                // Update error state
+                if (!value || value <= 0) {
+                  setDoseError(true);
+                } else {
+                  setDoseError(false);
+                }
+              }}
+              onBlur={e => {
+                const value = Number(e.target.value);
+                if (!value || value <= 0) {
+                  setTimeout(() => {
+                    alert('Dose must be greater than 0.');
+                  }, 0);
+                }
+              }}
+              placeholder="Default dose"
+              min="0"
+              step="any"
+              style={doseError ? invalidInputStyle : {}}
+              required
+            />
+            <select
+              value={form.unit}
+              onChange={e => setForm(prev => ({ ...prev, unit: e.target.value }))}
+            >
+              <option value="ug">µg</option>
+              <option value="mg">mg</option>
+              <option value="g">g</option>
+            </select>
+          </div>
+          <div className="button-row">
+            <button
+              className="cancel-btn"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+            <button
+              className="save-btn"
+              onClick={handleSave}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -745,6 +825,17 @@ function App() {
                     borderRadius: '4px'
                   }}
                 >
+                  <button
+                    type="button"
+                    className="asm-edit-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingDefaults(asmName);
+                    }}
+                  >
+                    ⋯
+                  </button>
                   <div className="asm-checkbox-content">
                     {asmName}
                   </div>
@@ -1495,6 +1586,27 @@ function App() {
           </div>
         </div>
       </form>
+
+      {editingDefaults && (
+        <EditDefaultsPopup
+          asm={editingDefaults}
+          onSave={(form) => {
+            setFormState(prev => ({
+              ...prev,
+              asmParameters: {
+                ...prev.asmParameters,
+                [editingDefaults]: {
+                  ...prev.asmParameters[editingDefaults],
+                  defaultDosage: Number(form.dosage),
+                  defaultUnit: form.unit
+                }
+              }
+            }));
+            setEditingDefaults(null);
+          }}
+          onCancel={() => setEditingDefaults(null)}
+        />
+      )}
     </div>
   );
 }
