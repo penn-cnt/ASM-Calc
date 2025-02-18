@@ -2,6 +2,8 @@
 
 A web application for calculating and visualizing anti-seizure medication (ASM) concentrations over time. This tool helps healthcare providers track multiple ASM levels using pharmacokinetic modeling.
 
+You can check out the live demo [here](https://www.asmcalc.com) or follow the steps below to run it locally.
+
 ## Features
 
 - Real-time concentration calculations for multiple ASMs
@@ -16,41 +18,28 @@ A web application for calculating and visualizing anti-seizure medication (ASM) 
 - Python 3.12 or higher
 - Node.js 23.7 or higher
 - npm 10.9 or higher
+- Vercel CLI 41.1 or higher 
+  - `npm i -g vercel`
 
 ## Local Development Setup
 
 1. Clone the repository:
-
 ```bash
 git clone https://github.com/penn-cnt/ASM-Calc.git
 ```
 
 2. Install Python dependencies:
-
 ```bash
-python3 -m venv .venv
+cd api && python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt && cd ..
 ```
 
-3. Start the backend server:
-
+3. Start the development server:
 ```bash
-python3 -m app/server.py
+# You may need to run `vercel login` first
+vercel dev
 ```
-
-4. Install Node.js dependencies:
-```bash
-cd app && npm install
-```
-
-5. Start the development server:
-```bash
-# In another terminal (in the app directory)
-npm run dev
-```
-
-6. Open your browser and navigate to `http://localhost:5173`
 
 ## Acknowledgments
 
