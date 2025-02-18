@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './App.css'
+import { DEFAULT_ASM_PARAMETERS, DEFAULT_ASM_TEMPLATE } from './config/asm-defaults'
 
 const ASM_COLORS_KEY = 'asmColors';
 const VISIBLE_ASMS_KEY = 'visibleAsms';
@@ -21,7 +22,10 @@ const loadFromLocalStorage = () => {
       // First time load - use default ASMs
       const defaultState = {
         weight: 70,
-        asmParameters: DEFAULT_ASM_PARAMETERS,
+        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+          ...acc,
+          [name]: { ...params, isCollapsed: false }
+        }), {}),
         medicationHistory: []
       };
       // Also set default visibleASMs
@@ -53,7 +57,10 @@ const loadFromLocalStorage = () => {
     console.error('Error loading from localStorage:', error);
     const defaultState = {
       weight: 70,
-      asmParameters: DEFAULT_ASM_PARAMETERS,
+      asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+        ...acc,
+        [name]: { ...params, isCollapsed: false }
+      }), {}),
       medicationHistory: [],
       visibleASMs: Object.keys(DEFAULT_ASM_PARAMETERS)
     };
@@ -70,43 +77,6 @@ const formatLocalDateTime = (isoString) => {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
-// Update DEFAULT_ASM_PARAMETERS to remove enabled property
-const DEFAULT_ASM_PARAMETERS = {
-  'Levetiracetam': {
-    halfLife: 6,
-    vd: 0.7,
-    bioavailability: 1.0,
-    isCollapsed: false,
-    defaultDosage: 500,
-    defaultUnit: 'mg'
-  },
-  'Valproate': {
-    halfLife: 14,
-    vd: 0.2,
-    bioavailability: 0.9,
-    isCollapsed: false,
-    defaultDosage: 200,
-    defaultUnit: 'mg'
-  },
-  'Carbamazepine': {
-    halfLife: 12,
-    vd: 1.4,
-    bioavailability: 0.8,
-    isCollapsed: false,
-    defaultDosage: 200,
-    defaultUnit: 'mg'
-  }
-};
-
-const DEFAULT_ASM_TEMPLATE = {
-  halfLife: 12,
-  vd: 0.7,
-  bioavailability: 1.0,
-  isCollapsed: false,
-  defaultDosage: 200,
-  defaultUnit: 'mg'
 };
 
 // Update CHART_COLORS to include more colors for custom ASMs
@@ -149,21 +119,13 @@ const ASM_COLORS = {
 
 const TOTAL_COLOR = CHART_COLORS[0];
 
-// Add this constant to track default color positions
-const DEFAULT_COLOR_POSITIONS = {
-  'Levetiracetam': 1,  // blue
-  'Valproate': 2,      // darker blue
-  'Carbamazepine': 3   // green
-};
-
-// Add this CSS class to handle invalid inputs
+// Handle invalid inputs
 const invalidInputStyle = {
   border: '2px solid var(--danger-red)',
   backgroundColor: 'rgba(239, 68, 68, 0.05)'
 };
 
 function App() {
-  const [results, setResults] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [visibleASMs, setVisibleASMs] = useState(() => {
     const savedState = loadFromLocalStorage();
@@ -175,7 +137,10 @@ function App() {
       localStorage.removeItem('formState');
       return {
         weight: 70,
-        asmParameters: DEFAULT_ASM_PARAMETERS,
+        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
+          ...acc,
+          [name]: { ...params, isCollapsed: false }
+        }), {}),
         medicationHistory: []
       };
     }
@@ -189,8 +154,6 @@ function App() {
   const [timeRange, setTimeRange] = useState(24);
   const [timeOffset, setTimeOffset] = useState(0);
 
-  const [expandedAsmType, setExpandedAsmType] = useState(null);
-
   // Add state for error handling
   const [parameterErrors, setParameterErrors] = useState({});
 
@@ -199,6 +162,8 @@ function App() {
 
   // Add state for weight error
   const [weightError, setWeightError] = useState(false);
+
+  const [editingDefaults, setEditingDefaults] = useState(null);
 
   useEffect(() => {
     try {
@@ -305,45 +270,6 @@ function App() {
     };
   }, []);
 
-  const convertToMg = (value, unit) => {
-    switch (unit) {
-      case 'ug': return value / 1000;
-      case 'g': return value * 1000;
-      default: return value;
-    }
-  };
-
-  const addDose = () => {
-    const now = new Date();
-    // Round to nearest minute
-    now.setSeconds(0, 0);
-    const localISOTime = now.toISOString();
-
-    // Find first non-collapsed ASM type
-    const defaultAsmType = Object.entries(formState.asmParameters)
-      .find(([_, params]) => !params.isCollapsed)?.[0]
-      || Object.keys(formState.asmParameters)[0];
-
-    // Ensure the ASM section is expanded
-    setFormState(prev => ({
-      ...prev,
-      asmParameters: {
-        ...prev.asmParameters,
-        [defaultAsmType]: {
-          ...prev.asmParameters[defaultAsmType],
-          isCollapsed: false  // Ensure section is expanded
-        }
-      },
-      medicationHistory: [...prev.medicationHistory, {
-        timestamp: localISOTime,
-        dosage: "500",
-        unit: "mg",
-        asmType: defaultAsmType,
-        taken: true
-      }]
-    }));
-  };
-
   const deleteDose = (index) => {
     setFormState(prev => ({
       ...prev,
@@ -405,11 +331,12 @@ function App() {
       })
     ].join('\n');
 
-    // Create and trigger download
+    // Create and trigger download with full timestamp
+    const timestamp = new Date().toLocaleString('sv').replace(' ', '_').replace(/:/g, '-');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `asm_concentrations_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `asm_concentrations_${timestamp}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -465,7 +392,8 @@ function App() {
       asmParameters: {
         ...prev.asmParameters,
         [newAsmName]: {
-          ...DEFAULT_ASM_TEMPLATE
+          ...DEFAULT_ASM_TEMPLATE,
+          isCollapsed: false
         }
       }
     }));
@@ -654,6 +582,112 @@ function App() {
     }
   };
 
+  const downloadMedicationHistory = () => {
+    if (formState.medicationHistory.length === 0) return;
+
+    // Create headers
+    const headers = ['Timestamp', 'ASM Type', 'Dosage', 'Unit'];
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(','),
+      ...formState.medicationHistory.map(med => [
+        new Date(med.timestamp).toISOString(),
+        med.asmType,
+        med.dosage,
+        med.unit
+      ].join(','))
+    ].join('\n');
+
+    // Create and trigger download with full timestamp
+    const timestamp = new Date().toLocaleString('sv').replace(' ', '_').replace(/:/g, '-');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `medication_history_${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const EditDefaultsPopup = ({ asm, onSave, onCancel }) => {
+    const [form, setForm] = useState({
+      dosage: formState.asmParameters[asm]?.defaultDosage || "",
+      unit: formState.asmParameters[asm]?.defaultUnit || "mg"
+    });
+    const [doseError, setDoseError] = useState(false);
+
+    const handleSave = () => {
+      const value = Number(form.dosage);
+      if (!value || value <= 0) {
+        alert('Dose must be greater than 0.');
+        return;
+      }
+      onSave(form);
+    };
+
+    return (
+      <>
+        <div className="popup-overlay" onClick={onCancel} />
+        <div className="edit-defaults-popup">
+          <h3>Edit Default Dose for {asm}</h3>
+          <div className="form-row">
+            <input
+              type="number"
+              value={form.dosage}
+              onChange={e => {
+                const value = Number(e.target.value);
+                setForm(prev => ({ ...prev, dosage: e.target.value }));
+
+                // Update error state
+                if (!value || value <= 0) {
+                  setDoseError(true);
+                } else {
+                  setDoseError(false);
+                }
+              }}
+              onBlur={e => {
+                const value = Number(e.target.value);
+                if (!value || value <= 0) {
+                  setTimeout(() => {
+                    alert('Dose must be greater than 0.');
+                  }, 0);
+                }
+              }}
+              placeholder="Default dose"
+              min="0"
+              step="any"
+              style={doseError ? invalidInputStyle : {}}
+              required
+            />
+            <select
+              value={form.unit}
+              onChange={e => setForm(prev => ({ ...prev, unit: e.target.value }))}
+            >
+              <option value="ug">µg</option>
+              <option value="mg">mg</option>
+              <option value="g">g</option>
+            </select>
+          </div>
+          <div className="button-row">
+            <button
+              className="cancel-btn"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+            <button
+              className="save-btn"
+              onClick={handleSave}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -716,6 +750,17 @@ function App() {
                     borderRadius: '4px'
                   }}
                 >
+                  <button
+                    type="button"
+                    className="asm-edit-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingDefaults(asmName);
+                    }}
+                  >
+                    ⋯
+                  </button>
                   <div className="asm-checkbox-content">
                     {asmName}
                   </div>
@@ -769,7 +814,7 @@ function App() {
                     setTimeout(() => newAsmInputRef.current?.focus(), 0);
                   }}
                 >
-                  + Add ASM
+                  Add ASM
                 </button>
               )}
             </div>
@@ -779,11 +824,15 @@ function App() {
             <h2>Medication History</h2>
             <div className="button-row">
               <div className="add-dose-dropdown">
-                <button type="button" className="add-dose-btn" onClick={() => {
-                  const dropdownEl = document.getElementById('add-dose-dropdown');
-                  dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
-                }}>
-                  + Add New Dose
+                <button
+                  type="button"
+                  className="add-dose-btn"
+                  onClick={() => {
+                    const dropdownEl = document.getElementById('add-dose-dropdown');
+                    dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
+                  }}
+                >
+                  Add New Dose
                 </button>
                 <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
                   {Object.keys(formState.asmParameters)
@@ -835,6 +884,15 @@ function App() {
                     })}
                 </div>
               </div>
+              {formState.medicationHistory.length > 0 && (
+                <button
+                  type="button"
+                  className="download-csv-btn"
+                  onClick={downloadMedicationHistory}
+                >
+                  Download CSV
+                </button>
+              )}
             </div>
             {Object.keys(formState.asmParameters).length > 0 ? (
               formState.medicationHistory.length > 0 ? (
@@ -902,8 +960,17 @@ function App() {
                               borderRadius: '4px',
                               padding: '8px'
                             }}
+                            data-index={index + 1}
                           >
                             <div className="dose-entry-inputs">
+                              <div
+                                className="dose-entry-number"
+                                style={{
+                                  color: getAsmColor(asmType)
+                                }}
+                              >
+                                {index + 1}
+                              </div>
                               <input
                                 type="datetime-local"
                                 value={formatLocalDateTime(med.timestamp)}
@@ -1351,6 +1418,7 @@ function App() {
                       value={params.vd}
                       onChange={e => {
                         const value = parseFloat(e.target.value);
+                        // First update the state
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
@@ -1361,10 +1429,11 @@ function App() {
                             }
                           }
                         }));
+
+                        // Update styling immediately, but no warning
                         if (!value || value <= 0) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                          alert('You must set a value greater than 0.');
                           setParameterErrors(prev => ({
                             ...prev,
                             [`${asmName}-vd`]: true
@@ -1378,6 +1447,14 @@ function App() {
                           }));
                         }
                       }}
+                      onBlur={e => {
+                        const value = parseFloat(e.target.value);
+                        if (!value || value <= 0) {
+                          setTimeout(() => {
+                            alert('You must set a value greater than 0.');
+                          }, 0);
+                        }
+                      }}
                       style={parameterErrors[`${asmName}-vd`] ? invalidInputStyle : {}}
                       required
                     />
@@ -1389,23 +1466,27 @@ function App() {
                       name={`${asmName}-bioavailability`}
                       type="number"
                       step="1"
-                      value={params.bioavailability * 100}
+                      min="0"
+                      max="100"
+                      value={Math.round(params.bioavailability * 100)}
                       onChange={e => {
-                        const value = parseFloat(e.target.value);
+                        const value = parseInt(e.target.value, 10);
+                        // First update the state, keeping as percentage
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
                             ...prev.asmParameters,
                             [asmName]: {
                               ...prev.asmParameters[asmName],
-                              bioavailability: e.target.value / 100
+                              bioavailability: value / 100 // Convert to proportion only when storing
                             }
                           }
                         }));
+
+                        // Update styling immediately, but no warning
                         if (!value || value <= 0 || value > 100) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                          alert('You must set a value greater than 0.');
                           setParameterErrors(prev => ({
                             ...prev,
                             [`${asmName}-bioavailability`]: true
@@ -1417,6 +1498,14 @@ function App() {
                             ...prev,
                             [`${asmName}-bioavailability`]: false
                           }));
+                        }
+                      }}
+                      onBlur={e => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!value || value <= 0 || value > 100) {
+                          setTimeout(() => {
+                            alert('You must set a value between 0 and 100.');
+                          }, 0);
                         }
                       }}
                       style={parameterErrors[`${asmName}-bioavailability`] ? invalidInputStyle : {}}
@@ -1431,6 +1520,27 @@ function App() {
           </div>
         </div>
       </form>
+
+      {editingDefaults && (
+        <EditDefaultsPopup
+          asm={editingDefaults}
+          onSave={(form) => {
+            setFormState(prev => ({
+              ...prev,
+              asmParameters: {
+                ...prev.asmParameters,
+                [editingDefaults]: {
+                  ...prev.asmParameters[editingDefaults],
+                  defaultDosage: Number(form.dosage),
+                  defaultUnit: form.unit
+                }
+              }
+            }));
+            setEditingDefaults(null);
+          }}
+          onCancel={() => setEditingDefaults(null)}
+        />
+      )}
     </div>
   );
 }
