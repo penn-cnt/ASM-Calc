@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import './App.css'
-import { DEFAULT_ASM_PARAMETERS, DEFAULT_ASM_TEMPLATE } from './config/asm-defaults'
+import { DEFAULT_ASM_TEMPLATE, availableAsms } from './config/asm-defaults'
 
 const ASM_COLORS_KEY = 'asmColors';
 const VISIBLE_ASMS_KEY = 'visibleAsms';
+const ASM_COLOR_ORDER_KEY = 'asmColorOrder';
 
 const TIME_RANGES = [
   { label: '4 hours', value: 4 },
@@ -19,32 +20,24 @@ const loadFromLocalStorage = () => {
   try {
     const savedState = localStorage.getItem('formState');
     if (!savedState) {
-      // First time load - use default ASMs
+      // First time load - start with empty state
       const defaultState = {
         weight: 70,
-        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
-          ...acc,
-          [name]: { ...params, isCollapsed: false }
-        }), {}),
-        medicationHistory: []
+        asmParameters: {},
+        medicationHistory: [],
+        visibleASMs: ['Total']  // Include Total by default
       };
-      // Also set default visibleASMs
-      const defaultVisibleASMs = Object.keys(DEFAULT_ASM_PARAMETERS);
-      localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(defaultVisibleASMs));
-      return { ...defaultState, visibleASMs: defaultVisibleASMs };
+      return defaultState;
     }
 
     const parsedState = JSON.parse(savedState);
 
-    // Load saved ASM colors
-    const savedColors = localStorage.getItem(ASM_COLORS_KEY);
-    if (savedColors) {
-      Object.assign(ASM_COLORS, JSON.parse(savedColors));
-    }
-
     // Load saved visible ASMs
     const savedVisibleASMs = localStorage.getItem(VISIBLE_ASMS_KEY);
-    const visibleASMs = savedVisibleASMs ? JSON.parse(savedVisibleASMs) : Object.keys(parsedState.asmParameters || {});
+    // If no saved visible ASMs, include all ASMs plus Total
+    const visibleASMs = savedVisibleASMs
+      ? JSON.parse(savedVisibleASMs)
+      : [...Object.keys(parsedState.asmParameters || {}), 'Total'];
 
     // Return combined state
     return {
@@ -55,16 +48,12 @@ const loadFromLocalStorage = () => {
     };
   } catch (error) {
     console.error('Error loading from localStorage:', error);
-    const defaultState = {
+    return {
       weight: 70,
-      asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
-        ...acc,
-        [name]: { ...params, isCollapsed: false }
-      }), {}),
+      asmParameters: {},
       medicationHistory: [],
-      visibleASMs: Object.keys(DEFAULT_ASM_PARAMETERS)
+      visibleASMs: ['Total']  // Include Total in default state
     };
-    return defaultState;
   }
 };
 
@@ -79,7 +68,6 @@ const formatLocalDateTime = (isoString) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-// Update CHART_COLORS to include more colors for custom ASMs
 const CHART_COLORS = [
   '#ff7300',  // Total (always first)
   '#8884d8',  // First ASM
@@ -92,30 +80,6 @@ const CHART_COLORS = [
   '#e7298a',
   '#b5cf6b'
 ];
-
-const processChartData = (rawData) => {
-  const grouped = rawData.reduce((acc, entry) => {
-    const time = new Date(entry.time).getTime();
-    if (!acc[time]) {
-      acc[time] = { time: entry.time };
-    }
-    acc[time][entry.asmType] = entry.concentration;
-    return acc;
-  }, {});
-
-  return Object.values(grouped)
-    .sort((a, b) => new Date(a.time) - new Date(b.time))
-    .map(entry => ({
-      ...entry,
-      time: new Date(entry.time).getTime()
-    }));
-};
-
-const ASM_COLORS = {
-  'Levetiracetam': CHART_COLORS[1],
-  'Valproate': CHART_COLORS[2],
-  'Carbamazepine': CHART_COLORS[3]
-};
 
 const TOTAL_COLOR = CHART_COLORS[0];
 
@@ -137,10 +101,7 @@ function App() {
       localStorage.removeItem('formState');
       return {
         weight: 70,
-        asmParameters: Object.entries(DEFAULT_ASM_PARAMETERS).reduce((acc, [name, params]) => ({
-          ...acc,
-          [name]: { ...params, isCollapsed: false }
-        }), {}),
+        asmParameters: {},  // Start with empty parameters
         medicationHistory: []
       };
     }
@@ -165,6 +126,26 @@ function App() {
 
   const [editingDefaults, setEditingDefaults] = useState(null);
 
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  // Add a new ref for the custom input
+  const customAsmInputRef = useRef(null);
+
+  // Update color order state initialization to load from localStorage
+  const [asmColorOrder, setAsmColorOrder] = useState(() => {
+    const savedOrder = localStorage.getItem(ASM_COLOR_ORDER_KEY);
+    if (savedOrder) {
+      return JSON.parse(savedOrder);
+    }
+    const savedState = loadFromLocalStorage();
+    return savedState.visibleASMs;
+  });
+
+  // Save color order when it changes
+  useEffect(() => {
+    localStorage.setItem(ASM_COLOR_ORDER_KEY, JSON.stringify(asmColorOrder));
+  }, [asmColorOrder]);
+
   useEffect(() => {
     try {
       localStorage.setItem('formState', JSON.stringify(formState));
@@ -172,6 +153,11 @@ function App() {
       console.error('Error saving to localStorage:', error);
     }
   }, [formState]);
+
+  // Save visibleASMs
+  useEffect(() => {
+    localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(visibleASMs));
+  }, [visibleASMs]);
 
   // Fetch data from API whenever inputs change
   useEffect(() => {
@@ -196,22 +182,31 @@ function App() {
 
         if (Object.keys(invalidParams).length > 0 || hasInvalidWeight) {
           setParameterErrors(invalidParams);
-          return; // Don't make API call if parameters or weight are invalid
+          return;
         }
 
-        // Create a copy of medication history with empty values replaced with "0"
-        const sanitizedMedications = formState.medicationHistory.map(med => ({
-          ...med,
-          dosage: med.dosage || "0"
-        }));
+        // Process parameters to handle half-life ranges
+        const processedParameters = Object.entries(formState.asmParameters).reduce((acc, [name, params]) => {
+          const halfLife = typeof params.halfLife === 'object'
+            ? (params.halfLife.min + params.halfLife.max) / 2  // Use average for min/max
+            : params.halfLife;  // Use single value directly
+
+          return {
+            ...acc,
+            [name]: {
+              ...params,
+              halfLife
+            }
+          };
+        }, {});
 
         const response = await fetch('/api/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             patient_weight: formState.weight,
-            medications: sanitizedMedications,  // Use sanitized version
-            asm_parameters: formState.asmParameters,
+            medications: formState.medicationHistory,
+            asm_parameters: processedParameters,  // Use processed parameters
             time_range: timeRange,
             time_offset: timeOffset
           })
@@ -241,10 +236,16 @@ function App() {
 
         setChartData(series);
 
-        // Add Total to visible ASMs if multiple ASMs have data
+        // Add Total to visible ASMs if multiple ASMs have data and no saved preferences
         const asmsWithData = series.filter(s => s.asm !== 'Total').length;
-        if (asmsWithData >= 2 && !visibleASMs.includes('Total')) {
-          setVisibleASMs(prev => [...prev, 'Total']);
+        const savedVisibleASMs = localStorage.getItem(VISIBLE_ASMS_KEY);
+        if (asmsWithData >= 2 && !savedVisibleASMs) {
+          const newVisibleASMs = [...visibleASMs];
+          if (!newVisibleASMs.includes('Total')) {
+            newVisibleASMs.push('Total');
+          }
+          setVisibleASMs(newVisibleASMs);
+          localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(newVisibleASMs));
         }
 
       } catch (error) {
@@ -342,49 +343,28 @@ function App() {
     document.body.removeChild(link);
   };
 
-  // Update the getAsmColor function to handle Total specially
   const getAsmColor = (asmType) => {
     if (asmType === 'Total') {
       return TOTAL_COLOR;
     }
-    return ASM_COLORS[asmType];
+    // Get index from color order array instead of visibleASMs
+    const index = asmColorOrder.indexOf(asmType);
+    // Use index + 1 since first color is for Total
+    return CHART_COLORS[index + 1] || CHART_COLORS[1 + (index % (CHART_COLORS.length - 1))];
   };
 
-  // Update handleAddCustomAsm to use stored colors first
+  // Update handleAddCustomAsm
   const handleAddCustomAsm = () => {
-    if (!newAsmName.trim()) {
-      alert('Please enter an ASM name');
+    if (!newAsmName) {
+      alert('Please select an ASM or create a custom one.');
       newAsmInputRef.current?.focus();
       return;
     }
 
-    // Check if ASM name already exists
     if (formState.asmParameters[newAsmName]) {
-      alert('An ASM with this name already exists');
-      newAsmInputRef.current?.select();
+      alert('An ASM with this name already exists.');
       return;
     }
-
-    // Get available colors from localStorage
-    let availableColors = JSON.parse(localStorage.getItem('availableColors') || '[]');
-
-    // Get the next color (either from available colors or from CHART_COLORS)
-    let newColor;
-    if (availableColors.length > 0) {
-      newColor = availableColors.shift(); // Take the first available color
-      localStorage.setItem('availableColors', JSON.stringify(availableColors));
-    } else {
-      // If no stored colors, use the next unused color from CHART_COLORS
-      const usedColors = new Set(Object.values(ASM_COLORS));
-      newColor = CHART_COLORS.slice(1).find(color => !usedColors.has(color)) ||
-        CHART_COLORS[1 + (Object.keys(formState.asmParameters).length % (CHART_COLORS.length - 1))];
-    }
-
-    // Update ASM colors
-    ASM_COLORS[newAsmName] = newColor;
-
-    // Save updated colors to localStorage
-    localStorage.setItem(ASM_COLORS_KEY, JSON.stringify(ASM_COLORS));
 
     // Add new ASM to parameters
     setFormState(prev => ({
@@ -392,63 +372,42 @@ function App() {
       asmParameters: {
         ...prev.asmParameters,
         [newAsmName]: {
-          ...DEFAULT_ASM_TEMPLATE,
+          ...(availableAsms[newAsmName] || DEFAULT_ASM_TEMPLATE),
+          defaultDosage: 200,
+          defaultUnit: 'mg',
           isCollapsed: false
         }
       }
     }));
 
-    // Add the new ASM to visible ASMs
-    setVisibleASMs(prev => [...prev, newAsmName]);
+    const newColorOrder = [...asmColorOrder, newAsmName];
+    setAsmColorOrder(newColorOrder);
+    localStorage.setItem(ASM_COLOR_ORDER_KEY, JSON.stringify(newColorOrder));
 
-    // Reset form
     setNewAsmName('');
     setShowAddAsmForm(false);
+    setShowCustomInput(false);
   };
 
-  // Add a new useEffect to save visibleASMs when they change
-  useEffect(() => {
-    localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify(visibleASMs));
-  }, [visibleASMs]);
-
-  // Update handleDeleteASM to store the deleted color
+  // Update handleDeleteASM
   const handleDeleteASM = (asmName) => {
     if (!confirm(`Are you sure you want to delete ${asmName}? This will remove all doses and parameters associated with it.`)) {
       return;
     }
 
-    // Store the color of the ASM being deleted
-    const deletedColor = ASM_COLORS[asmName];
-
-    // Remove from ASM parameters
-    const newAsmParameters = { ...formState.asmParameters };
-    delete newAsmParameters[asmName];
-
-    // Remove from ASM colors
-    const newAsmColors = { ...ASM_COLORS };
-    delete newAsmColors[asmName];
-
-    // Remove from visible ASMs
-    setVisibleASMs(prev => prev.filter(name => name !== asmName));
-
-    // Update form state
+    const { [asmName]: _, ...remainingAsms } = formState.asmParameters;
     setFormState(prev => ({
       ...prev,
-      asmParameters: newAsmParameters,
+      asmParameters: remainingAsms,
       medicationHistory: prev.medicationHistory.filter(med => med.asmType !== asmName)
     }));
 
-    // Store the deleted color at the front of available colors array
-    if (deletedColor && !Object.values(newAsmColors).includes(deletedColor)) {
-      localStorage.setItem('availableColors', JSON.stringify([deletedColor, ...JSON.parse(localStorage.getItem('availableColors') || '[]')]));
-    }
-
-    // Update localStorage
-    localStorage.setItem(ASM_COLORS_KEY, JSON.stringify(newAsmColors));
-    Object.assign(ASM_COLORS, newAsmColors);
+    setVisibleASMs(prev => prev.filter(asm => asm !== asmName));
+    const newColorOrder = asmColorOrder.filter(asm => asm !== asmName);
+    setAsmColorOrder(newColorOrder);
+    localStorage.setItem(ASM_COLOR_ORDER_KEY, JSON.stringify(newColorOrder));
   };
 
-  // Update the time formatting helper to show date on first tick if no midnight
   const formatXAxis = (timestamp) => {
     const date = new Date(timestamp);
     const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -688,6 +647,9 @@ function App() {
     );
   };
 
+  // Helper function to check if any active ASMs are non-linear
+  const hasNonLinearAsms = Object.values(formState.asmParameters).some(params => params.nonLinear);
+
   return (
     <div className="app-container">
       <h1>ASM Concentration Calculator</h1>
@@ -702,15 +664,17 @@ function App() {
                 id="patient-weight"
                 name="patient-weight"
                 type="number"
-                value={formState.weight}
+                min="0"
+                step="0.1"
+                value={Number(formState.weight).toFixed(1)}
                 onChange={e => {
-                  const value = Number(e.target.value);
+                  const value = parseFloat(e.target.value);
                   setFormState({
                     ...formState,
-                    weight: e.target.value // Allow empty value during typing
+                    weight: value
                   });
 
-                  // Update error state
+                  // Update styling immediately
                   if (!value || value <= 0) {
                     e.target.style.border = invalidInputStyle.border;
                     e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
@@ -722,14 +686,13 @@ function App() {
                   }
                 }}
                 onBlur={e => {
-                  const value = Number(e.target.value);
+                  const value = parseFloat(e.target.value);
                   if (!value || value <= 0) {
                     setTimeout(() => {
                       alert('Weight must be greater than 0.');
                     }, 0);
                   }
                 }}
-                step="0.1"
                 required
                 style={weightError ? invalidInputStyle : {}}
               />
@@ -737,86 +700,126 @@ function App() {
 
             <div className="asm-toggle-group">
               <h3>Active ASMs</h3>
-              {Object.entries(formState.asmParameters).map(([asmName, params]) => (
-                <div
-                  key={asmName}
-                  className="asm-checkbox"
-                  style={{
-                    '--checkbox-color': ASM_COLORS[asmName],
-                    color: ASM_COLORS[asmName],
-                    backgroundColor: `${ASM_COLORS[asmName]}15`,
-                    borderLeft: `4px solid ${ASM_COLORS[asmName]}`,
-                    padding: '4px 8px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="asm-edit-btn"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditingDefaults(asmName);
+              <div className="active-asms">
+                {Object.entries(formState.asmParameters).map(([asmName, params]) => (
+                  <div
+                    key={asmName}
+                    className="asm-checkbox"
+                    style={{
+                      '--checkbox-color': getAsmColor(asmName),
+                      color: getAsmColor(asmName),
+                      backgroundColor: `${getAsmColor(asmName)}15`,
+                      borderLeft: `4px solid ${getAsmColor(asmName)}`,
+                      padding: '4px 8px',
+                      borderRadius: '4px'
                     }}
                   >
-                    ⋯
-                  </button>
-                  <div className="asm-checkbox-content">
-                    {asmName}
+                    <button
+                      type="button"
+                      className="asm-edit-btn"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingDefaults(asmName);
+                      }}
+                    >
+                      ⋯
+                    </button>
+                    <div className="asm-checkbox-content">
+                      {asmName}{params.nonLinear ? '*' : ''}
+                    </div>
+                    <button
+                      type="button"
+                      className="asm-delete-btn"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteASM(asmName);
+                      }}
+                    >
+                      ×
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="asm-delete-btn"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeleteASM(asmName);
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+                ))}
 
-              {showAddAsmForm ? (
-                <div className="add-asm-form">
-                  <input
-                    ref={newAsmInputRef}
-                    type="text"
-                    value={newAsmName}
-                    onChange={(e) => setNewAsmName(e.target.value)}
-                    placeholder="Enter ASM name"
-                    required
-                  />
+                {showAddAsmForm ? (
+                  <div className="add-asm-form">
+                    {showCustomInput ? (
+                      <>
+                        <input
+                          ref={customAsmInputRef}
+                          type="text"
+                          value={newAsmName}
+                          onChange={(e) => setNewAsmName(e.target.value)}
+                          placeholder="Enter custom ASM"
+                          required
+                        />
+                      </>
+                    ) : (
+                      <select
+                        ref={newAsmInputRef}
+                        value={newAsmName}
+                        onChange={(e) => {
+                          if (e.target.value === 'custom') {
+                            setShowCustomInput(true);
+                            setNewAsmName('');
+                            // Focus the custom input after state updates
+                            setTimeout(() => customAsmInputRef.current?.focus(), 0);
+                          } else {
+                            setNewAsmName(e.target.value);
+                          }
+                        }}
+                        required
+                      >
+                        <option value="">Select an ASM</option>
+                        {Object.entries(availableAsms)
+                          .filter(([name]) => !formState.asmParameters[name])
+                          .map(([name, params]) => (
+                            <option key={name} value={name}>
+                              {name}{params.nonLinear ? '*' : ''}
+                            </option>
+                          ))}
+                        <option value="custom">+ Add Custom ASM</option>
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      className="confirm-btn"
+                      onClick={handleAddCustomAsm}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      className="cancel-btn"
+                      onClick={() => {
+                        setShowAddAsmForm(false);
+                        setShowCustomInput(false);
+                        setNewAsmName('');
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    className="confirm-btn"
-                    onClick={handleAddCustomAsm}
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    className="cancel-btn"
+                    className="add-asm-btn"
                     onClick={() => {
-                      setShowAddAsmForm(false);
-                      setNewAsmName('');
+                      setShowAddAsmForm(true);
+                      setTimeout(() => newAsmInputRef.current?.focus(), 0);
                     }}
                   >
-                    ×
+                    Add ASM
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="add-asm-btn"
-                  onClick={() => {
-                    setShowAddAsmForm(true);
-                    setTimeout(() => newAsmInputRef.current?.focus(), 0);
-                  }}
-                >
-                  Add ASM
-                </button>
-              )}
+                )}
+
+                {/* Show note only if there are non-linear ASMs */}
+                {hasNonLinearAsms && (
+                  <div className="asm-note">
+                    *This ASM is known to deviate from a first-order model.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -843,9 +846,9 @@ function App() {
                           key={asmType}
                           type="button"
                           style={{
-                            color: ASM_COLORS[asmType],
-                            backgroundColor: `${ASM_COLORS[asmType]}15`,
-                            borderLeft: `4px solid ${ASM_COLORS[asmType]}`
+                            color: getAsmColor(asmType),
+                            backgroundColor: `${getAsmColor(asmType)}15`,
+                            borderLeft: `4px solid ${getAsmColor(asmType)}`
                           }}
                           onClick={() => {
                             const now = new Date();
@@ -1353,33 +1356,36 @@ function App() {
                   key={asmName}
                   className="asm-params-group"
                   style={{
-                    backgroundColor: `${ASM_COLORS[asmName]}08`,
-                    borderLeft: `4px solid ${ASM_COLORS[asmName]}`
+                    backgroundColor: `${getAsmColor(asmName)}08`,
+                    borderLeft: `4px solid ${getAsmColor(asmName)}`
                   }}
                 >
-                  <h3 style={{ color: ASM_COLORS[asmName] }}>{asmName}</h3>
+                  <h3 style={{ color: getAsmColor(asmName) }}>{asmName}</h3>
                   <label htmlFor={`${asmName}-half-life`}>
                     Half-life (hours):
                     <input
                       id={`${asmName}-half-life`}
                       name={`${asmName}-half-life`}
                       type="number"
-                      value={params.halfLife}
+                      min="0"
+                      value={typeof params.halfLife === 'object' ?
+                        (params.halfLife.min + params.halfLife.max) / 2 :
+                        params.halfLife
+                      }
                       onChange={e => {
                         const value = parseFloat(e.target.value);
-                        // First update the state
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
                             ...prev.asmParameters,
                             [asmName]: {
                               ...prev.asmParameters[asmName],
-                              halfLife: e.target.value
+                              halfLife: value
                             }
                           }
                         }));
 
-                        // Update styling immediately, but no warning
+                        // Update styling immediately
                         if (!value || value <= 0) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
@@ -1400,12 +1406,12 @@ function App() {
                         const value = parseFloat(e.target.value);
                         if (!value || value <= 0) {
                           setTimeout(() => {
-                            alert('You must set a value greater than 0.');
+                            alert('Half-life must be greater than 0.');
                           }, 0);
                         }
                       }}
-                      style={parameterErrors[`${asmName}-half-life`] ? invalidInputStyle : {}}
                       required
+                      style={parameterErrors[`${asmName}-half-life`] ? invalidInputStyle : {}}
                     />
                   </label>
                   <label htmlFor={`${asmName}-vd`}>
@@ -1415,22 +1421,22 @@ function App() {
                       name={`${asmName}-vd`}
                       type="number"
                       step="0.1"
-                      value={params.vd}
+                      min="0"
+                      value={Number(params.vd).toFixed(1)}
                       onChange={e => {
                         const value = parseFloat(e.target.value);
-                        // First update the state
                         setFormState(prev => ({
                           ...prev,
                           asmParameters: {
                             ...prev.asmParameters,
                             [asmName]: {
                               ...prev.asmParameters[asmName],
-                              vd: e.target.value
+                              vd: value
                             }
                           }
                         }));
 
-                        // Update styling immediately, but no warning
+                        // Update styling immediately
                         if (!value || value <= 0) {
                           e.target.style.border = invalidInputStyle.border;
                           e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
@@ -1451,12 +1457,12 @@ function App() {
                         const value = parseFloat(e.target.value);
                         if (!value || value <= 0) {
                           setTimeout(() => {
-                            alert('You must set a value greater than 0.');
+                            alert('Volume of distribution must be greater than 0.');
                           }, 0);
                         }
                       }}
-                      style={parameterErrors[`${asmName}-vd`] ? invalidInputStyle : {}}
                       required
+                      style={parameterErrors[`${asmName}-vd`] ? invalidInputStyle : {}}
                     />
                   </label>
                   <label htmlFor={`${asmName}-bioavailability`}>
@@ -1504,7 +1510,7 @@ function App() {
                         const value = parseInt(e.target.value, 10);
                         if (!value || value <= 0 || value > 100) {
                           setTimeout(() => {
-                            alert('You must set a value between 0 and 100.');
+                            alert('Bioavailability must be between 0 and 100.');
                           }, 0);
                         }
                       }}
