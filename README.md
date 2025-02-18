@@ -24,13 +24,11 @@ You can check out the live demo [here](https://www.asmcalc.com) or follow the st
 ## Local Development Setup
 
 1. Clone the repository:
-
 ```bash
 git clone https://github.com/penn-cnt/ASM-Calc.git
 ```
 
 2. Install Python dependencies:
-
 ```bash
 cd api && python3 -m venv .venv
 source .venv/bin/activate
@@ -42,8 +40,6 @@ pip install -r requirements.txt && cd ..
 # You may need to run `vercel login` first
 vercel dev
 ```
-
-4. Open your browser and navigate to `http://localhost:3000`
 
 ## Acknowledgments
 
