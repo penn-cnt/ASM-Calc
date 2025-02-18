@@ -89,20 +89,28 @@ def calculate_drug_levels(medication_history, drug_params, global_time_points):
         return [], []
 
     # Validate parameters
-    required_params = ["half_life", "vd", "bioavailability"]
+    required_params = ["halfLife", "vd", "bioavailability"]
     for param in required_params:
         if param not in drug_params:
             raise ValueError(f"Missing required parameter: {param}")
 
-    # Sort medications by timestamp
-    sorted_meds = sorted(medication_history, key=lambda x: x.timestamp)
+    # Get half-life value - handle both single value and min/max format
+    half_life = drug_params["halfLife"]
+    if isinstance(half_life, dict):
+        # Use average of min and max for calculations
+        half_life_hours = (half_life["min"] + half_life["max"]) / 2
+    else:
+        half_life_hours = half_life
 
     # Initialize drug model
     model = DrugModel(
-        half_life_hours=drug_params["half_life"],
+        half_life_hours=half_life_hours,
         volume_distribution=drug_params["vd"],
         bioavailability=drug_params["bioavailability"],
     )
+
+    # Sort medications by timestamp
+    sorted_meds = sorted(medication_history, key=lambda x: x.timestamp)
 
     # Calculate concentrations at each global time point
     concentrations = []
