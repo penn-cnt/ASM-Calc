@@ -853,8 +853,38 @@ function App() {
                             setNewAsmName('');
                             // Focus the custom input after state updates
                             setTimeout(() => customAsmInputRef.current?.focus(), 0);
-                          } else {
-                            setNewAsmName(e.target.value);
+                          } else if (e.target.value) {  // If a value is selected (not empty)
+                            // Get default parameters
+                            const defaultParams = availableAsms[e.target.value] || DEFAULT_ASM_TEMPLATE;
+
+                            // If half-life is a range, use the average
+                            const halfLife = defaultParams.halfLife?.min !== undefined
+                              ? (defaultParams.halfLife.min + defaultParams.halfLife.max) / 2
+                              : defaultParams.halfLife;
+
+                            // Add new ASM to parameters
+                            setFormState(prev => ({
+                              ...prev,
+                              asmParameters: {
+                                ...prev.asmParameters,
+                                [e.target.value]: {
+                                  ...defaultParams,
+                                  halfLife,  // Use the calculated or direct half-life value
+                                  defaultDosage: 200,
+                                  defaultUnit: 'mg',
+                                  isCollapsed: false
+                                }
+                              }
+                            }));
+
+                            // Update color order
+                            const newColorOrder = [...asmColorOrder, e.target.value];
+                            setAsmColorOrder(newColorOrder);
+                            localStorage.setItem(ASM_COLOR_ORDER_KEY, JSON.stringify(newColorOrder));
+
+                            // Reset the select
+                            setNewAsmName('');
+                            setShowAddAsmForm(false);
                           }
                         }}
                         required
@@ -1434,7 +1464,7 @@ function App() {
               </ResponsiveContainer>
             </>
           ) : (
-            <p className="no-data" style={{ marginTop: '1rem' }}>Add a dose above to view the graph</p>
+            <p className="no-data" style={{ marginTop: '1rem' }}>Add a dose to view the graph</p>
           )}
         </div>
 
