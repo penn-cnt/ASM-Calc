@@ -147,9 +147,13 @@ def calculate_total_concentration(individual_concentrations):
     n_points = len(next(iter(individual_concentrations.values())))
     total = [0] * n_points
 
-    # Sum concentrations at each time point
+    # Sum concentrations at each time point, rounding individual values first
     for concentrations in individual_concentrations.values():
         for i in range(n_points):
-            total[i] += concentrations[i]
+            # Round to 2 decimal places before adding
+            total[i] += round(concentrations[i], 2)
+
+    # Round final totals to 2 decimal places as well
+    total = [round(t, 2) for t in total]
 
     return total
