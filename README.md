@@ -11,7 +11,7 @@ You can check out the live demo [here](https://www.asmcalc.com) or follow the st
 - Customizable pharmacokinetic parameters
 - Support for multiple dosing regimens
 
-![ASM-Calc Screenshot](https://github.com/user-attachments/assets/a650a50e-8a44-4bcd-9545-8bd9a19a55f5)
+![ASM-Calc Screenshot](https://github.com/user-attachments/assets/e6171002-2a9b-4acc-83fa-79abb6cc4ec5)
 
 ## Prerequisites
 
