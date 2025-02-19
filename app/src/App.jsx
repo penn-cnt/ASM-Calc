@@ -85,7 +85,7 @@ const TOTAL_COLOR = CHART_COLORS[0];
 
 // Handle invalid inputs
 const invalidInputStyle = {
-  border: '2px solid var(--danger-red)',
+  border: '1px solid var(--danger-red)',
   backgroundColor: 'rgba(239, 68, 68, 0.05)'
 };
 
@@ -914,248 +914,254 @@ function App() {
 
           <div className="form-section medication-history">
             <h2>Medication History</h2>
-            <div className="button-row">
-              <div className="add-dose-dropdown">
-                <button
-                  type="button"
-                  className="add-dose-btn"
-                  onClick={() => {
-                    const dropdownEl = document.getElementById('add-dose-dropdown');
-                    dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
-                  }}
-                >
-                  Add New Dose
-                </button>
-                <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
-                  {Object.keys(formState.asmParameters)
-                    .map(asmType => {
-                      const params = formState.asmParameters[asmType];
-                      return (
-                        <button
-                          key={asmType}
-                          type="button"
-                          style={{
-                            color: getAsmColor(asmType),
-                            backgroundColor: `${getAsmColor(asmType)}15`,
-                            borderLeft: `4px solid ${getAsmColor(asmType)}`
-                          }}
-                          onClick={() => {
-                            const now = new Date();
-                            now.setSeconds(0, 0);
-                            const localISOTime = now.toISOString();
-
-                            // Make sure the ASM is visible in the chart
-                            if (!visibleASMs.includes(asmType)) {
-                              setVisibleASMs(prev => [...prev, asmType]);
-                              localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify([...visibleASMs, asmType]));
-                            }
-
-                            setFormState(prev => ({
-                              ...prev,
-                              asmParameters: {
-                                ...prev.asmParameters,
-                                [asmType]: {
-                                  ...prev.asmParameters[asmType],
-                                  isCollapsed: false
-                                }
-                              },
-                              medicationHistory: [...prev.medicationHistory, {
-                                timestamp: localISOTime,
-                                dosage: String(params.defaultDosage),
-                                unit: params.defaultUnit,
-                                asmType: asmType,
-                                taken: true
-                              }]
-                            }));
-                            document.getElementById('add-dose-dropdown').style.display = 'none';
-                          }}
-                        >
-                          + {asmType}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-              {formState.medicationHistory.length > 0 && (
-                <button
-                  type="button"
-                  className="download-csv-btn"
-                  onClick={downloadMedicationHistory}
-                >
-                  Download CSV
-                </button>
-              )}
-            </div>
             {Object.keys(formState.asmParameters).length > 0 ? (
-              formState.medicationHistory.length > 0 ? (
-                Object.keys(formState.asmParameters)
-                  .map(asmType => {
-                    const doses = formState.medicationHistory.filter(med => med.asmType === asmType);
-                    if (doses.length === 0) return null;
-
-                    return (
-                      <div
-                        key={asmType}
-                        className="asm-dose-group"
-                      >
-                        <div
-                          className="asm-dose-header"
-                          onClick={() => {
-                            setFormState(prev => ({
-                              ...prev,
-                              asmParameters: {
-                                ...prev.asmParameters,
-                                [asmType]: {
-                                  ...prev.asmParameters[asmType],
-                                  isCollapsed: !prev.asmParameters[asmType].isCollapsed
-                                }
-                              }
-                            }));
-                          }}
-                          style={{
-                            backgroundColor: `${getAsmColor(asmType)}15`,
-                            borderLeft: `4px solid ${getAsmColor(asmType)}`,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <h3 style={{ color: getAsmColor(asmType) }}>
-                            {asmType} ({doses.length})
-                          </h3>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <>
+                <div className="button-row">
+                  <div className="add-dose-dropdown">
+                    <button
+                      type="button"
+                      className="add-dose-btn"
+                      onClick={() => {
+                        const dropdownEl = document.getElementById('add-dose-dropdown');
+                        dropdownEl.style.display = dropdownEl.style.display === 'none' ? 'block' : 'none';
+                      }}
+                    >
+                      Add Dose
+                    </button>
+                    <div id="add-dose-dropdown" className="dropdown-content" style={{ display: 'none' }}>
+                      {Object.keys(formState.asmParameters)
+                        .map(asmType => {
+                          const params = formState.asmParameters[asmType];
+                          return (
                             <button
+                              key={asmType}
                               type="button"
-                              className="quick-add-btn"
-                              onClick={(e) => handleQuickAdd(e, asmType)}
                               style={{
                                 color: getAsmColor(asmType),
-                                border: `1px solid ${getAsmColor(asmType)}`,
-                                backgroundColor: '#fff'
+                                backgroundColor: `${getAsmColor(asmType)}15`,
+                                borderLeft: `4px solid ${getAsmColor(asmType)}`
+                              }}
+                              onClick={() => {
+                                const now = new Date();
+                                now.setSeconds(0, 0);
+                                const localISOTime = now.toISOString();
+
+                                // Make sure the ASM is visible in the chart
+                                if (!visibleASMs.includes(asmType)) {
+                                  setVisibleASMs(prev => [...prev, asmType]);
+                                  localStorage.setItem(VISIBLE_ASMS_KEY, JSON.stringify([...visibleASMs, asmType]));
+                                }
+
+                                setFormState(prev => ({
+                                  ...prev,
+                                  asmParameters: {
+                                    ...prev.asmParameters,
+                                    [asmType]: {
+                                      ...prev.asmParameters[asmType],
+                                      isCollapsed: false
+                                    }
+                                  },
+                                  medicationHistory: [...prev.medicationHistory, {
+                                    timestamp: localISOTime,
+                                    dosage: String(params.defaultDosage),
+                                    unit: params.defaultUnit,
+                                    asmType: asmType,
+                                    taken: true
+                                  }]
+                                }));
+                                document.getElementById('add-dose-dropdown').style.display = 'none';
                               }}
                             >
-                              Quick Add
+                              + {asmType}
                             </button>
-                            <span
-                              className="collapse-indicator"
-                              style={{ color: getAsmColor(asmType) }}
-                            >
-                              {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
-                            </span>
-                          </div>
-                        </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                  {formState.medicationHistory.length > 0 && (
+                    <button
+                      type="button"
+                      className="download-csv-btn"
+                      onClick={downloadMedicationHistory}
+                    >
+                      Download CSV
+                    </button>
+                  )}
+                </div>
+                {Object.keys(formState.asmParameters).length > 0 ? (
+                  formState.medicationHistory.length > 0 ? (
+                    Object.keys(formState.asmParameters)
+                      .map(asmType => {
+                        const doses = formState.medicationHistory.filter(med => med.asmType === asmType);
+                        if (doses.length === 0) return null;
 
-                        {!formState.asmParameters[asmType].isCollapsed && doses.map((med, index) => (
+                        return (
                           <div
-                            key={`${asmType}-${index}`}
-                            className="dose-entry"
-                            style={{
-                              backgroundColor: `${getAsmColor(asmType)}08`,
-                              borderRadius: '4px',
-                              padding: '8px'
-                            }}
-                            data-index={index + 1}
+                            key={asmType}
+                            className="asm-dose-group"
                           >
-                            <div className="dose-entry-inputs">
-                              <div
-                                className="dose-entry-number"
-                                style={{
-                                  color: getAsmColor(asmType)
-                                }}
-                              >
-                                {index + 1}
-                              </div>
-                              <input
-                                type="datetime-local"
-                                value={formatLocalDateTime(med.timestamp)}
-                                onChange={(e) => {
-                                  const globalIndex = formState.medicationHistory.indexOf(med);
-                                  handleDoseTimeChange(e, globalIndex);
-                                }}
-                                onClick={(e) => openDatePicker(e)}
-                                required
-                              />
-                              <div className="dose-value-group">
-                                <input
-                                  type="number"
-                                  value={med.dosage}
-                                  onChange={e => {
-                                    const value = Number(e.target.value);
-                                    const newHistory = [...formState.medicationHistory];
-                                    const globalIndex = formState.medicationHistory.indexOf(med);
-                                    // Allow empty value during typing
-                                    newHistory[globalIndex].dosage = e.target.value;
-                                    setFormState(prev => ({
-                                      ...prev,
-                                      medicationHistory: newHistory
-                                    }));
-
-                                    // Update error state
-                                    if (!value || value <= 0) {
-                                      e.target.style.border = invalidInputStyle.border;
-                                      e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                                      setDoseErrors(prev => ({
-                                        ...prev,
-                                        [globalIndex]: true
-                                      }));
-                                    } else {
-                                      e.target.style.border = '';
-                                      e.target.style.backgroundColor = '';
-                                      setDoseErrors(prev => ({
-                                        ...prev,
-                                        [globalIndex]: false
-                                      }));
+                            <div
+                              className="asm-dose-header"
+                              onClick={() => {
+                                setFormState(prev => ({
+                                  ...prev,
+                                  asmParameters: {
+                                    ...prev.asmParameters,
+                                    [asmType]: {
+                                      ...prev.asmParameters[asmType],
+                                      isCollapsed: !prev.asmParameters[asmType].isCollapsed
                                     }
-                                  }}
-                                  onBlur={e => {
-                                    const value = Number(e.target.value);
-                                    if (!value || value <= 0) {
-                                      setTimeout(() => {
-                                        alert('Dose must be greater than 0.');
-                                      }, 0);
-                                    }
-                                  }}
-                                  min="0"
-                                  step="any"
-                                  required
-                                  style={doseErrors[formState.medicationHistory.indexOf(med)] ? invalidInputStyle : {}}
-                                />
-                                <select
-                                  value={med.unit || 'mg'}
-                                  onChange={e => {
-                                    const newHistory = [...formState.medicationHistory];
-                                    const globalIndex = formState.medicationHistory.indexOf(med);
-                                    newHistory[globalIndex].unit = e.target.value;
-                                    setFormState(prev => ({
-                                      ...prev,
-                                      medicationHistory: newHistory
-                                    }));
+                                  }
+                                }));
+                              }}
+                              style={{
+                                backgroundColor: `${getAsmColor(asmType)}15`,
+                                borderLeft: `4px solid ${getAsmColor(asmType)}`,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <h3 style={{ color: getAsmColor(asmType) }}>
+                                {asmType} ({doses.length})
+                              </h3>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <button
+                                  type="button"
+                                  className="quick-add-btn"
+                                  onClick={(e) => handleQuickAdd(e, asmType)}
+                                  style={{
+                                    color: getAsmColor(asmType),
+                                    border: `1px solid ${getAsmColor(asmType)}`,
+                                    backgroundColor: '#fff'
                                   }}
                                 >
-                                  <option value="ug">µg</option>
-                                  <option value="mg">mg</option>
-                                  <option value="g">g</option>
-                                </select>
+                                  Quick Add
+                                </button>
+                                <span
+                                  className="collapse-indicator"
+                                  style={{ color: getAsmColor(asmType) }}
+                                >
+                                  {formState.asmParameters[asmType].isCollapsed ? '▼' : '▲'}
+                                </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const globalIndex = formState.medicationHistory.indexOf(med);
-                                  deleteDose(globalIndex);
-                                }}
-                                aria-label="Delete dose"
-                              >
-                                ×
-                              </button>
                             </div>
+
+                            {!formState.asmParameters[asmType].isCollapsed && doses.map((med, index) => (
+                              <div
+                                key={`${asmType}-${index}`}
+                                className="dose-entry"
+                                style={{
+                                  backgroundColor: `${getAsmColor(asmType)}08`,
+                                  borderRadius: '4px',
+                                  padding: '8px'
+                                }}
+                                data-index={index + 1}
+                              >
+                                <div className="dose-entry-inputs">
+                                  <div
+                                    className="dose-entry-number"
+                                    style={{
+                                      color: getAsmColor(asmType)
+                                    }}
+                                  >
+                                    {index + 1}
+                                  </div>
+                                  <input
+                                    type="datetime-local"
+                                    value={formatLocalDateTime(med.timestamp)}
+                                    onChange={(e) => {
+                                      const globalIndex = formState.medicationHistory.indexOf(med);
+                                      handleDoseTimeChange(e, globalIndex);
+                                    }}
+                                    onClick={(e) => openDatePicker(e)}
+                                    required
+                                  />
+                                  <div className="dose-value-group">
+                                    <input
+                                      type="number"
+                                      value={med.dosage}
+                                      onChange={e => {
+                                        const value = Number(e.target.value);
+                                        const newHistory = [...formState.medicationHistory];
+                                        const globalIndex = formState.medicationHistory.indexOf(med);
+                                        // Allow empty value during typing
+                                        newHistory[globalIndex].dosage = e.target.value;
+                                        setFormState(prev => ({
+                                          ...prev,
+                                          medicationHistory: newHistory
+                                        }));
+
+                                        // Update error state
+                                        if (!value || value <= 0) {
+                                          e.target.style.border = invalidInputStyle.border;
+                                          e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
+                                          setDoseErrors(prev => ({
+                                            ...prev,
+                                            [globalIndex]: true
+                                          }));
+                                        } else {
+                                          e.target.style.border = '';
+                                          e.target.style.backgroundColor = '';
+                                          setDoseErrors(prev => ({
+                                            ...prev,
+                                            [globalIndex]: false
+                                          }));
+                                        }
+                                      }}
+                                      onBlur={e => {
+                                        const value = Number(e.target.value);
+                                        if (!value || value <= 0) {
+                                          setTimeout(() => {
+                                            alert('Dose must be greater than 0.');
+                                          }, 0);
+                                        }
+                                      }}
+                                      min="0"
+                                      step="any"
+                                      required
+                                      style={doseErrors[formState.medicationHistory.indexOf(med)] ? invalidInputStyle : {}}
+                                    />
+                                    <select
+                                      value={med.unit || 'mg'}
+                                      onChange={e => {
+                                        const newHistory = [...formState.medicationHistory];
+                                        const globalIndex = formState.medicationHistory.indexOf(med);
+                                        newHistory[globalIndex].unit = e.target.value;
+                                        setFormState(prev => ({
+                                          ...prev,
+                                          medicationHistory: newHistory
+                                        }));
+                                      }}
+                                    >
+                                      <option value="ug">µg</option>
+                                      <option value="mg">mg</option>
+                                      <option value="g">g</option>
+                                    </select>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const globalIndex = formState.medicationHistory.indexOf(med);
+                                      deleteDose(globalIndex);
+                                    }}
+                                    aria-label="Delete dose"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })
-              ) : (
-                <p className="no-data">Click "Add New Dose" to begin the medication history</p>
-              )
+                        );
+                      })
+                  ) : (
+                    <p className="no-data">Add a dose to calculate concentrations</p>
+                  )
+                ) : (
+                  <p className="no-data">Add an ASM to begin the medication history</p>
+                )}
+              </>
             ) : (
-              <p className="no-data">Add an ASM on the left before adding a dose</p>
+              <p className="no-data">Add an ASM to begin the medication history</p>
             )}
           </div>
         </div>
@@ -1164,267 +1170,271 @@ function App() {
           <div className="chart-header">
             <div className="chart-title-row">
               <h2>ASM Concentration Over Time</h2>
-              <div className="time-controls">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTimeOffset(0); // Reset offset to current time
-                    // Show all active ASMs
-                    const allAsms = getAllAsmNames(chartData);
-                    setVisibleASMs(allAsms);
-                  }}
-                  className="time-shift-btn reset-btn"
-                  title="Reset to current time"
-                >
-                  ↺
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeOffset(curr => curr - 8)}
-                  className="time-shift-btn"
-                  title="Back 8 hours"
-                >
-                  ◀◀
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeOffset(curr => curr - 4)}
-                  className="time-shift-btn"
-                  title="Back 4 hours"
-                >
-                  ◀
-                </button>
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(Number(e.target.value))}
-                  className="time-range-select"
-                >
-                  {TIME_RANGES.map(range => (
-                    <option key={range.value} value={range.value}>
-                      {range.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setTimeOffset(curr => curr + 4)}
-                  className="time-shift-btn"
-                  title="Forward 4 hours"
-                >
-                  ▶
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeOffset(curr => curr + 8)}
-                  className="time-shift-btn"
-                  title="Forward 8 hours"
-                >
-                  ▶▶
-                </button>
-              </div>
               {chartData.length > 0 && (
-                <button
-                  type="button"
-                  onClick={downloadCSV}
-                  className="download-csv-btn"
-                >
-                  Download CSV
-                </button>
+                <>
+                  <div className="time-controls">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTimeOffset(0); // Reset offset to current time
+                        // Show all active ASMs
+                        const allAsms = getAllAsmNames(chartData);
+                        setVisibleASMs(allAsms);
+                      }}
+                      className="time-shift-btn reset-btn"
+                      title="Reset to current time"
+                    >
+                      ↺
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeOffset(curr => curr - 8)}
+                      className="time-shift-btn"
+                      title="Back 8 hours"
+                    >
+                      ◀◀
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeOffset(curr => curr - 4)}
+                      className="time-shift-btn"
+                      title="Back 4 hours"
+                    >
+                      ◀
+                    </button>
+                    <select
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(Number(e.target.value))}
+                      className="time-range-select"
+                    >
+                      {TIME_RANGES.map(range => (
+                        <option key={range.value} value={range.value}>
+                          {range.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setTimeOffset(curr => curr + 4)}
+                      className="time-shift-btn"
+                      title="Forward 4 hours"
+                    >
+                      ▶
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeOffset(curr => curr + 8)}
+                      className="time-shift-btn"
+                      title="Forward 8 hours"
+                    >
+                      ▶▶
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadCSV}
+                    className="download-csv-btn"
+                  >
+                    Download CSV
+                  </button>
+                </>
               )}
             </div>
           </div>
-          <div className="asm-selector">
-            {(() => {
-              const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
-              const singleASM = activeASMs.length === 1;
-
-              // Sort series to ensure Total is first
-              const sortedSeries = [...chartData].sort((a, b) => {
-                if (a.asm === 'Total') return -1;
-                if (b.asm === 'Total') return 1;
-                return 0;
-              });
-
-              return sortedSeries.map(series => (
-                <label
-                  key={`selector-${series.asm}`}
-                  className={`asm-selector-checkbox ${singleASM ? 'single-asm' : ''}`}
-                  style={{
-                    '--checkbox-color': getAsmColor(series.asm),
-                    color: getAsmColor(series.asm),
-                    backgroundColor: `${getAsmColor(series.asm)}15`,
-                    borderLeft: `4px solid ${getAsmColor(series.asm)}`,
-                    padding: '4px 8px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  {!singleASM && (
-                    <input
-                      type="checkbox"
-                      checked={visibleASMs.includes(series.asm)}
-                      onChange={() => toggleASM(series.asm)}
-                    />
-                  )}
-                  {series.asm}
-                </label>
-              ));
-            })()}
-          </div>
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={500}>
-              <LineChart
-                margin={{ left: 50, right: 20, top: 20, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="time"
-                  type="number"
-                  domain={(() => {
-                    const now = Date.now() + (timeOffset * 60 * 60 * 1000);
-                    return getTimeWindowBounds(now, timeRange);
-                  })()}
-                  tickFormatter={formatXAxis}
-                  scale="time"
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  interval={0}
-                  ticks={(() => {
-                    const now = Date.now() + (timeOffset * 60 * 60 * 1000);
-                    const [startTime, endTime] = getTimeWindowBounds(now, timeRange);
-                    const points = [];
+            <>
+              <div className="asm-selector">
+                {(() => {
+                  const activeASMs = [...new Set(formState.medicationHistory.map(med => med.asmType))];
+                  const singleASM = activeASMs.length === 1;
 
-                    // Determine tick interval based on time range
-                    const hourInterval = timeRange <= 24 ? 1 :
-                      timeRange <= 48 ? 2 :
-                        3;
-
-                    // Generate ticks from midnight to midnight
-                    const start = new Date(startTime);
-                    const totalHours = Math.ceil((endTime - startTime) / (60 * 60 * 1000));
-
-                    for (let i = 0; i <= totalHours; i += hourInterval) {
-                      const tickTime = new Date(start);
-                      tickTime.setHours(tickTime.getHours() + i);
-                      points.push(tickTime.getTime());
-                    }
-                    return points;
-                  })()}
-                />
-                <YAxis
-                  label={{
-                    value: 'Concentration (mg/L)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    offset: -5,
-                    style: {
-                      textAnchor: 'middle'
-                    }
-                  }}
-                />
-                <Tooltip
-                  labelFormatter={formatXAxis}
-                  formatter={formatTooltip}
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      // Find the exact data point for this timestamp from the first visible series
-                      const timestamp = label;
-                      const visibleSeries = chartData.find(s =>
-                        visibleASMs.includes(s.asm) &&
-                        s.data.some(p => p.time === timestamp)
-                      );
-
-                      if (!visibleSeries) return null;
-
-                      // Get the exact data point
-                      const dataPoint = visibleSeries.data.find(p => p.time === timestamp);
-                      if (!dataPoint) return null;
-
-                      // Get values for all visible ASMs at this exact timestamp
-                      const values = chartData
-                        .filter(s => visibleASMs.includes(s.asm))
-                        .map(s => {
-                          const point = s.data.find(p => p.time === timestamp);
-                          return {
-                            name: s.asm,
-                            value: point ? point[s.asm] : null,
-                            color: getAsmColor(s.asm)
-                          };
-                        })
-                        .filter(entry => entry.value != null)
-                        .sort((a, b) => {
-                          if (a.name === 'Total') return -1;
-                          if (b.name === 'Total') return 1;
-                          return 0;
-                        });
-
-                      return (
-                        <div className="custom-tooltip">
-                          <p className="tooltip-time">{new Date(timestamp).toLocaleString()}</p>
-                          {values.map(entry => (
-                            <p
-                              key={`tooltip-${entry.name}`}
-                              style={{ color: entry.color }}
-                            >
-                              {entry.name}: {entry.value.toFixed(2)}
-                            </p>
-                          ))}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                {chartData
-                  .sort((a, b) => {
+                  // Sort series to ensure Total is first
+                  const sortedSeries = [...chartData].sort((a, b) => {
                     if (a.asm === 'Total') return -1;
                     if (b.asm === 'Total') return 1;
                     return 0;
-                  })
-                  .map((series) => {
-                    const now = Date.now() + (timeOffset * 60 * 60 * 1000);
-                    const [startTime, endTime] = getTimeWindowBounds(now, timeRange);
+                  });
 
-                    // Get dose times for this ASM
-                    const doseTimes = new Set(
-                      formState.medicationHistory
-                        .filter(med => med.asmType === series.asm)
-                        .map(med => new Date(med.timestamp).getTime())
-                    );
+                  return sortedSeries.map(series => (
+                    <label
+                      key={`selector-${series.asm}`}
+                      className={`asm-selector-checkbox ${singleASM ? 'single-asm' : ''}`}
+                      style={{
+                        '--checkbox-color': getAsmColor(series.asm),
+                        color: getAsmColor(series.asm),
+                        backgroundColor: `${getAsmColor(series.asm)}15`,
+                        borderLeft: `4px solid ${getAsmColor(series.asm)}`,
+                        padding: '4px 8px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {!singleASM && (
+                        <input
+                          type="checkbox"
+                          checked={visibleASMs.includes(series.asm)}
+                          onChange={() => toggleASM(series.asm)}
+                        />
+                      )}
+                      {series.asm}
+                    </label>
+                  ));
+                })()}
+              </div>
+              <ResponsiveContainer width="100%" height={500}>
+                <LineChart
+                  margin={{ left: 50, right: 20, top: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="time"
+                    type="number"
+                    domain={(() => {
+                      const now = Date.now() + (timeOffset * 60 * 60 * 1000);
+                      return getTimeWindowBounds(now, timeRange);
+                    })()}
+                    tickFormatter={formatXAxis}
+                    scale="time"
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    ticks={(() => {
+                      const now = Date.now() + (timeOffset * 60 * 60 * 1000);
+                      const [startTime, endTime] = getTimeWindowBounds(now, timeRange);
+                      const points = [];
 
-                    const filteredData = series.data.filter(point =>
-                      point.time >= startTime &&
-                      point.time <= endTime &&
-                      (point[series.asm] >= 0.01 || doseTimes.has(point.time))  // Consider values < 0.01 as 0
-                    );
+                      // Determine tick interval based on time range
+                      const hourInterval = timeRange <= 24 ? 1 :
+                        timeRange <= 48 ? 2 :
+                          3;
 
-                    // Round very small values to 0
-                    const processedData = filteredData.map(point => ({
-                      ...point,
-                      [series.asm]: point[series.asm] < 0.01 ? 0 : point[series.asm]
-                    }));
+                      // Generate ticks from midnight to midnight
+                      const start = new Date(startTime);
+                      const totalHours = Math.ceil((endTime - startTime) / (60 * 60 * 1000));
 
-                    return (
-                      <Line
-                        key={`line-${series.asm}`}
-                        type="monotone"
-                        dataKey={series.asm}
-                        data={processedData}
-                        name={series.asm}
-                        stroke={getAsmColor(series.asm)}
-                        strokeWidth={3}
-                        dot={false}
-                        activeDot={false}
-                        opacity={series.asm === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
-                        hide={series.asm !== 'Total' && !visibleASMs.includes(series.asm)}
-                        connectNulls={true}
-                      />
-                    );
-                  })}
-              </LineChart>
-            </ResponsiveContainer>
+                      for (let i = 0; i <= totalHours; i += hourInterval) {
+                        const tickTime = new Date(start);
+                        tickTime.setHours(tickTime.getHours() + i);
+                        points.push(tickTime.getTime());
+                      }
+                      return points;
+                    })()}
+                  />
+                  <YAxis
+                    label={{
+                      value: 'Concentration (mg/L)',
+                      angle: -90,
+                      position: 'insideLeft',
+                      offset: -5,
+                      style: {
+                        textAnchor: 'middle'
+                      }
+                    }}
+                  />
+                  <Tooltip
+                    labelFormatter={formatXAxis}
+                    formatter={formatTooltip}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        // Find the exact data point for this timestamp from the first visible series
+                        const timestamp = label;
+                        const visibleSeries = chartData.find(s =>
+                          visibleASMs.includes(s.asm) &&
+                          s.data.some(p => p.time === timestamp)
+                        );
+
+                        if (!visibleSeries) return null;
+
+                        // Get the exact data point
+                        const dataPoint = visibleSeries.data.find(p => p.time === timestamp);
+                        if (!dataPoint) return null;
+
+                        // Get values for all visible ASMs at this exact timestamp
+                        const values = chartData
+                          .filter(s => visibleASMs.includes(s.asm))
+                          .map(s => {
+                            const point = s.data.find(p => p.time === timestamp);
+                            return {
+                              name: s.asm,
+                              value: point ? point[s.asm] : null,
+                              color: getAsmColor(s.asm)
+                            };
+                          })
+                          .filter(entry => entry.value != null)
+                          .sort((a, b) => {
+                            if (a.name === 'Total') return -1;
+                            if (b.name === 'Total') return 1;
+                            return 0;
+                          });
+
+                        return (
+                          <div className="custom-tooltip">
+                            <p className="tooltip-time">{new Date(timestamp).toLocaleString()}</p>
+                            {values.map(entry => (
+                              <p
+                                key={`tooltip-${entry.name}`}
+                                style={{ color: entry.color }}
+                              >
+                                {entry.name}: {entry.value.toFixed(2)}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  {chartData
+                    .sort((a, b) => {
+                      if (a.asm === 'Total') return -1;
+                      if (b.asm === 'Total') return 1;
+                      return 0;
+                    })
+                    .map((series) => {
+                      const now = Date.now() + (timeOffset * 60 * 60 * 1000);
+                      const [startTime, endTime] = getTimeWindowBounds(now, timeRange);
+
+                      // Get dose times for this ASM
+                      const doseTimes = new Set(
+                        formState.medicationHistory
+                          .filter(med => med.asmType === series.asm)
+                          .map(med => new Date(med.timestamp).getTime())
+                      );
+
+                      const filteredData = series.data.filter(point =>
+                        point.time >= startTime &&
+                        point.time <= endTime &&
+                        (point[series.asm] >= 0.01 || doseTimes.has(point.time))  // Consider values < 0.01 as 0
+                      );
+
+                      // Round very small values to 0
+                      const processedData = filteredData.map(point => ({
+                        ...point,
+                        [series.asm]: point[series.asm] < 0.01 ? 0 : point[series.asm]
+                      }));
+
+                      return (
+                        <Line
+                          key={`line-${series.asm}`}
+                          type="monotone"
+                          dataKey={series.asm}
+                          data={processedData}
+                          name={series.asm}
+                          stroke={getAsmColor(series.asm)}
+                          strokeWidth={3}
+                          dot={false}
+                          activeDot={false}
+                          opacity={series.asm === 'Total' ? (visibleASMs.includes('Total') ? 1 : 0) : 1}
+                          hide={series.asm !== 'Total' && !visibleASMs.includes(series.asm)}
+                          connectNulls={true}
+                        />
+                      );
+                    })}
+                </LineChart>
+              </ResponsiveContainer>
+            </>
           ) : (
-            <p className="no-data">Add a dose above to view the graph</p>
+            <p className="no-data" style={{ marginTop: '1rem' }}>Add a dose above to view the graph</p>
           )}
         </div>
 
@@ -1586,7 +1596,7 @@ function App() {
                 </div>
               ))}
             {Object.keys(formState.asmParameters).length === 0 && (
-              <p className="no-data">Add an ASM above to view and edit parameters</p>
+              <p className="no-data">Add an ASM to view and edit parameters</p>
             )}
           </div>
         </div>

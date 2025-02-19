@@ -32,7 +32,7 @@
   /* Spacing */
   --spacing-xs: 0.4rem;
   --spacing-sm: 0.8rem;
-  --spacing-md: 1.2rem;
+  --spacing-md: 1.0rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
 
@@ -94,7 +94,7 @@ h1 {
 
 .medication-history .no-data {
   flex-grow: 1;
-  margin-top: 1rem;
+  margin-top: 0rem;
 }
 
 .parameters-form {
@@ -125,7 +125,7 @@ h1 {
 }
 
 .form-section h2 {
-  margin: 0 0 var(--spacing-md) 0;
+  margin: 0 0 1rem 0;
   font-size: var(--text-xl);
   color: var(--text-primary);
   font-weight: 600;
@@ -577,11 +577,11 @@ input[type="datetime-local"]:focus {
   border-top: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .asm-toggle-group h3 {
-  margin: 0 0 0.5rem 0;
+  margin: 0rem;
+  margin-bottom: 0.5rem;
   font-size: var(--text-base);
   color: var(--text-secondary);
   font-weight: 500;
@@ -617,7 +617,7 @@ input[type="datetime-local"]:focus {
 }
 
 .add-asm-form {
-  margin-top: 0.5rem;
+  margin-top: .5rem;
   display: flex;
   gap: 0.5rem;
 }
@@ -1105,6 +1105,7 @@ input[type="datetime-local"]:focus {
 .subtitle {
   color: var(--text-secondary);
   font-size: var(--text-base);
+  font-style: italic;
   margin: 0;
 }
 
