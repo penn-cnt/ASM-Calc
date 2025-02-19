@@ -65,19 +65,17 @@
 
 h1 {
   color: var(--text-primary);
-  margin-bottom: var(--spacing-xl);
   font-weight: 600;
   font-size: 2.2rem;
-  margin-top: 1rem;
   letter-spacing: -0.5px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin: 0;
 }
 
 .calculator-grid {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  margin-top: 1rem;
 }
 
 .parameters-grid {
@@ -1085,4 +1083,69 @@ input[type="datetime-local"]:focus {
 
 .asm-parameters-container .section-header {
   margin: 0 0 1rem 0;
+}
+
+.title-container {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+.title-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.title-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title-links a img {
+  width: 1.2rem;
+  height: 1.2rem;
+  opacity: 0.7;
+}
+
+.title-links a:hover {
+  color: var(--primary-blue);
+  text-decoration: none;
+}
+
+.title-links a:hover img {
+  opacity: 1;
+}
+
+.title-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.title-with-logo .logo {
+  height: 2.2rem;
+  width: auto;
 }

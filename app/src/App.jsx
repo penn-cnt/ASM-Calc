@@ -723,7 +723,25 @@ function App() {
 
   return (
     <div className="app-container">
-      <h1>ASM Concentration Calculator</h1>
+      <div className="title-container">
+        <div className="title-content">
+          <div className="title-with-logo">
+            <img src="/logo.svg" alt="" className="logo" />
+            <h1>ASM Calculator</h1>
+          </div>
+          <p className="subtitle">Track, calculate, and visualize anti-seizure medication concentrations.</p>
+        </div>
+        <div className="title-links">
+          <a href="https://doi.org/10.1111/epi.17558" target="_blank" rel="noopener">
+            <img src="/paper.svg" alt="" />
+            Publication
+          </a>
+          <a href="https://github.com/penn-cnt/ASM-Calc" target="_blank" rel="noopener">
+            <img src="/github.svg" alt="" />
+            Source Code
+          </a>
+        </div>
+      </div>
 
       <form className="calculator-grid">
         <div className="parameters-grid">
