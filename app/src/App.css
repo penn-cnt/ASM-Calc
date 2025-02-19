@@ -793,27 +793,6 @@ input[type="datetime-local"]:focus {
   transform: rotate(-90deg);
 }
 
-.refresh-btn {
-  font-size: 1rem;
-  padding: 0.5rem;
-  width: 2rem;
-  height: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  transform: rotate(30deg);
-}
-
-.refresh-btn:hover {
-  transform: rotate(60deg);
-}
-
-.refresh-btn:active {
-  transform: rotate(90deg);
-}
-
 .asm-selector-checkbox {
   display: flex;
   align-items: center;

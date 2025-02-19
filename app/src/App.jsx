@@ -1203,14 +1203,6 @@ function App() {
                 >
                   ▶▶
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeOffset(0)}
-                  className="time-shift-btn refresh-btn"
-                  title="Update to current time"
-                >
-                  ↻
-                </button>
               </div>
               {chartData.length > 0 && (
                 <button
