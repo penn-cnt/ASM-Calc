@@ -353,7 +353,6 @@ function App() {
     return CHART_COLORS[index + 1] || CHART_COLORS[1 + (index % (CHART_COLORS.length - 1))];
   };
 
-  // Update handleAddCustomAsm
   const handleAddCustomAsm = () => {
     if (!newAsmName) {
       alert('Please select an ASM or create a custom one.');
@@ -366,13 +365,22 @@ function App() {
       return;
     }
 
+    // Get default parameters
+    const defaultParams = availableAsms[newAsmName] || DEFAULT_ASM_TEMPLATE;
+
+    // If half-life is a range, use the average
+    const halfLife = defaultParams.halfLife?.min !== undefined
+      ? (defaultParams.halfLife.min + defaultParams.halfLife.max) / 2
+      : defaultParams.halfLife;
+
     // Add new ASM to parameters
     setFormState(prev => ({
       ...prev,
       asmParameters: {
         ...prev.asmParameters,
         [newAsmName]: {
-          ...(availableAsms[newAsmName] || DEFAULT_ASM_TEMPLATE),
+          ...defaultParams,
+          halfLife,  // Use the calculated or direct half-life value
           defaultDosage: 200,
           defaultUnit: 'mg',
           isCollapsed: false
@@ -649,6 +657,69 @@ function App() {
 
   // Helper function to check if any active ASMs are non-linear
   const hasNonLinearAsms = Object.values(formState.asmParameters).some(params => params.nonLinear);
+
+  const downloadParametersCSV = () => {
+    if (Object.keys(formState.asmParameters).length === 0) return;
+
+    // Create headers
+    const headers = ['ASM', 'Half Life (hours)', 'Volume Distribution (L/kg)', 'Bioavailability (%)'];
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(','),
+      ...Object.entries(formState.asmParameters).map(([asmName, params]) => {
+        return [
+          asmName,
+          params.halfLife.toString(),  // Just use the current value directly
+          params.vd.toFixed(2),
+          (params.bioavailability * 100).toFixed(0)
+        ].join(',');
+      })
+    ].join('\n');
+
+    // Create and trigger download
+    const timestamp = new Date().toLocaleString('sv').replace(' ', '_').replace(/:/g, '-');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `asm_parameters_${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Update handleHalfLifeChange to store average for range values
+  const handleHalfLifeChange = (e, asmName) => {
+    const value = parseFloat(e.target.value);
+    const params = formState.asmParameters[asmName];
+
+    // If the current parameter has a min/max range in availableAsms, use the average
+    if (availableAsms[asmName]?.halfLife?.min !== undefined) {
+      const avgHalfLife = (availableAsms[asmName].halfLife.min + availableAsms[asmName].halfLife.max) / 2;
+      setFormState(prev => ({
+        ...prev,
+        asmParameters: {
+          ...prev.asmParameters,
+          [asmName]: {
+            ...prev.asmParameters[asmName],
+            halfLife: avgHalfLife
+          }
+        }
+      }));
+    } else {
+      // For single values, store directly
+      setFormState(prev => ({
+        ...prev,
+        asmParameters: {
+          ...prev.asmParameters,
+          [asmName]: {
+            ...prev.asmParameters[asmName],
+            halfLife: value
+          }
+        }
+      }));
+    }
+  };
 
   return (
     <div className="app-container">
@@ -1348,7 +1419,18 @@ function App() {
         </div>
 
         <div className="asm-parameters-container">
-          <h2>ASM Parameters</h2>
+          <div className="section-header">
+            <h2>ASM Parameters</h2>
+            {Object.keys(formState.asmParameters).length > 0 && (
+              <button
+                type="button"
+                onClick={downloadParametersCSV}
+                className="download-csv-btn"
+              >
+                Download CSV
+              </button>
+            )}
+          </div>
           <div className="asm-parameters-grid">
             {Object.entries(formState.asmParameters)
               .map(([asmName, params]) => (
@@ -1372,35 +1454,8 @@ function App() {
                         (params.halfLife.min + params.halfLife.max) / 2 :
                         params.halfLife
                       }
-                      onChange={e => {
-                        const value = parseFloat(e.target.value);
-                        setFormState(prev => ({
-                          ...prev,
-                          asmParameters: {
-                            ...prev.asmParameters,
-                            [asmName]: {
-                              ...prev.asmParameters[asmName],
-                              halfLife: value
-                            }
-                          }
-                        }));
-
-                        // Update styling immediately
-                        if (!value || value <= 0) {
-                          e.target.style.border = invalidInputStyle.border;
-                          e.target.style.backgroundColor = invalidInputStyle.backgroundColor;
-                          setParameterErrors(prev => ({
-                            ...prev,
-                            [`${asmName}-half-life`]: true
-                          }));
-                        } else {
-                          e.target.style.border = '';
-                          e.target.style.backgroundColor = '';
-                          setParameterErrors(prev => ({
-                            ...prev,
-                            [`${asmName}-half-life`]: false
-                          }));
-                        }
+                      onChange={(e) => {
+                        handleHalfLifeChange(e, asmName);
                       }}
                       onBlur={e => {
                         const value = parseFloat(e.target.value);
