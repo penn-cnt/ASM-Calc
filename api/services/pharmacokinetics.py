@@ -10,12 +10,15 @@ class DrugModel:
     Uses two-compartment model with first-order absorption and elimination
     """
 
-    def __init__(self, half_life_hours, volume_distribution, bioavailability=1.0):
+    def __init__(
+        self, half_life_hours, volume_distribution, bioavailability=1.0, ka_ke_ratio=1.5
+    ):
         """
         Args:
             half_life_hours (float): Elimination half-life in hours
             volume_distribution (float): Volume of distribution in L/kg
             bioavailability (float): Fraction of dose absorbed (0-1)
+            ka_ke_ratio (float): Ratio of absorption to elimination rate (default 1.5)
         """
         self.half_life = half_life_hours
         self.vd = volume_distribution
@@ -23,23 +26,28 @@ class DrugModel:
 
         # Calculate rate constants
         self.ke = np.log(2) / half_life_hours  # Elimination rate constant (1/h)
-        self.ka = 1.5 * self.ke  # Absorption rate constant (1/h)
 
-    def calculate_concentration(self, dose_times, current_time):
+        if ka_ke_ratio <= 1:
+            raise ValueError("ka/ke ratio must be greater than 1")
+
+        self.ka = ka_ke_ratio * self.ke  # Absorption rate constant (1/h)
+
+    def calculate_concentration(self, dose_times, current_time, c0=0):
         """
-        Calculate drug concentration at current_time considering all previous doses
-        using superposition principle
+        Calculate drug concentration using two-compartment model with first-order absorption
+        Based on: Cp = (ka*F*D)/(Vd*(ka-kel)) * (e^(-kel*t) - e^(-ka*t))
+        Source: https://doi.org/10.1111/epi.17558
 
         Args:
             dose_times (dict): Dictionary of {timestamp: dose_mg} pairs
             current_time (datetime): Time point to calculate concentration for
+            c0 (float): Initial concentration (default 0)
 
         Returns:
             float: Total drug concentration at current_time (mg/L)
         """
         total = 0.0
         for dose_time, dose_mg in dose_times.items():
-            # Calculate time since dose in hours - use exact timestamp
             delta_t = (current_time - dose_time).total_seconds() / 3600
 
             if delta_t < 0:
@@ -50,6 +58,11 @@ class DrugModel:
                 (self.ka / (self.ka - self.ke))
                 * (np.exp(-self.ke * delta_t) - np.exp(-self.ka * delta_t))
             )
+
+            # Add C0 contribution if specified
+            if c0 > 0:
+                concentration += c0 * np.exp(-self.ke * delta_t)
+
             total += max(0, concentration)
 
         return total
