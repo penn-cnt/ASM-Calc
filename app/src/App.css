@@ -1105,7 +1105,6 @@ input[type="datetime-local"]:focus {
 .subtitle {
   color: var(--text-secondary);
   font-size: var(--text-base);
-  font-style: italic;
   margin: 0;
 }
 
